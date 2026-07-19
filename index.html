@@ -763,7 +763,7 @@
         <div class="score-ring" id="scoreRing">—</div>
         <div class="score-text">
           <h3 id="scoreTitle">Retirement Confidence Score</h3>
-          <p id="scoreDesc">Based on 1,000 simulated market scenarios with randomized annual returns, this is the share of scenarios where your money lasts through age <span id="scoreLifeExp"></span> without running short.</p>
+          <p id="scoreDesc">Conservative stress test: 1,000 scenarios use independent annual return draws at your selected volatility. A run fails after any uncovered annual shortfall through age <span id="scoreLifeExp"></span>, even if later income or market gains would allow balances to recover.</p>
         </div>
       </div>
 
@@ -773,8 +773,14 @@
         <div class="stat"><div class="label">10th-percentile ending net worth</div><div class="value" id="mcP10Ending">—</div></div>
         <div class="stat"><div class="label">Failed simulations</div><div class="value" id="mcFailureCount">—</div></div>
         <div class="stat"><div class="label">Shortfall age among failures</div><div class="value" id="mcFailureAges">—</div></div>
+        <div class="stat"><div class="label">Failures with portfolio depletion</div><div class="value" id="mcDepletionFailures">—</div></div>
+        <div class="stat"><div class="label">Shortfall but positive ending net worth</div><div class="value" id="mcRecoveredFailures">—</div></div>
+        <div class="stat"><div class="label">Ending net worth below zero</div><div class="value" id="mcNegativeEnding">—</div></div>
         <div class="stat"><div class="label">All-assets emergency success</div><div class="value" id="mcAllAssetsScore">—</div></div>
+        <div class="stat"><div class="label">Historically calibrated success</div><div class="value" id="mcHistoricalScore">—</div></div>
       </div>
+
+      <div class="note" style="margin-top:-8px;margin-bottom:18px;">Use the historically calibrated score for comparison with retirement programs that model real market sequences. The conservative score above remains the stricter stress test. “All-assets emergency” uses the same conservative returns but permits every investment and cash account to prevent a shortfall.</div>
 
       <div class="card" id="dataQualityCard">
         <h3 onclick="toggleCard(this)">Plan Data Checks<span class="sub-label">Automatic warnings for assumptions and possible double counting</span></h3>
@@ -5350,7 +5356,18 @@ function applyState(state) {
   if (Array.isArray(state.expenses)) expenses = state.expenses;
   if (Array.isArray(state.brokeragePies)) brokeragePies = state.brokeragePies;
   if (Array.isArray(state.debts)) debts = state.debts;
-  if (Array.isArray(state.futureExpenses)) futureExpenses = state.futureExpenses;
+  if (Array.isArray(state.futureExpenses)) {
+    futureExpenses = state.futureExpenses;
+    // Align the exact legacy vacation entry with the comparison plan: 14 annual charges.
+    // A user-customized vacation schedule is left untouched.
+    futureExpenses.forEach(f => {
+      if (/^vacations?\s*&\s*trips$/i.test(String(f.name || '').trim()) && +f.age === 55 && +f.endAge === 70 && +f.amount === 4992) {
+        f.age = 56;
+        f.endAge = 69;
+        f.dateValue = '2030-05';
+      }
+    });
+  }
   if (Array.isArray(state.windfalls)) windfalls = state.windfalls;
   if (Array.isArray(state.insurancePolicies)) insurancePolicies = state.insurancePolicies;
   if (Array.isArray(state.withdrawalOrderState)) withdrawalOrderState = state.withdrawalOrderState;
@@ -5760,7 +5777,7 @@ function renderSurvivorExpenseChecklist() {
 let futureExpenses = [
   { name:'Vehicle Purchase #1', age: 62, amount: 12000, recurring:true, endAge: 67, dateValue:'2036-01', survivorContinues:true },
   { name:'Vehicle Purchase #2', age: 77, amount: 14400, recurring:true, endAge: 82, dateValue:'2051-01', survivorContinues:true },
-  { name:'Vacations & Trips', age: 56, amount: 4992, recurring:true, endAge: 70, dateValue:null, survivorContinues:false }
+  { name:'Vacations & Trips', age: 56, amount: 4992, recurring:true, endAge: 69, dateValue:'2030-05', survivorContinues:false }
 ];
 function renderFutureExpenseRows() {
   const container = els('futureExpenseRows');
@@ -7653,12 +7670,18 @@ function runMonteCarloDetailed(inputs, ctx, N, shocks) {
     + JSON.stringify(futureExpenses) + JSON.stringify(windfalls) + JSON.stringify(insurancePolicies) + JSON.stringify(brokeragePies) + '|' + N;
   mcRandom = mulberry32(hashStringToSeed(seedSource));
   let successes = 0;
+  let depletionFailures = 0, recoveredFailures = 0, negativeEndingRuns = 0;
   const endingNetWorths = [];
   const failureAges = [];
   for (let i = 0; i < N; i++) {
     const result = projectRun(inputs, ctx, true, shocks);
     if (result.success) successes++;
-    else if (result.firstShortfallAge != null) failureAges.push(result.firstShortfallAge);
+    else {
+      if (result.firstShortfallAge != null) failureAges.push(result.firstShortfallAge);
+      if (result.depletionAge != null) depletionFailures++;
+      if (result.endingNetWorth > 0) recoveredFailures++;
+    }
+    if (result.endingNetWorth < 0) negativeEndingRuns++;
     endingNetWorths.push(result.endingNetWorth);
   }
   endingNetWorths.sort((a,b) => a-b);
@@ -7673,6 +7696,9 @@ function runMonteCarloDetailed(inputs, ctx, N, shocks) {
     score: successes / N * 100,
     successes,
     failures: N - successes,
+    depletionFailures,
+    recoveredFailures,
+    negativeEndingRuns,
     medianEndingNetWorth: percentile(endingNetWorths, 0.5),
     p10EndingNetWorth: percentile(endingNetWorths, 0.10),
     earliestFailureAge: failureAges.length ? failureAges[0] : null,
@@ -7776,6 +7802,41 @@ function runHistoricalBacktest(inputs, ctx) {
   }
   const successCount = results.filter(r => r.success).length;
   return { results, successRate: results.length ? (successCount / results.length * 100) : null };
+}
+
+// Historically calibrated Monte Carlo. Each simulation stitches together randomly selected
+// five-year blocks of actual S&P 500 annual returns. This preserves real multi-year market behavior
+// and sequence risk instead of treating every annual return as an unrelated normal draw. It also
+// permits every account as an emergency source, matching the broad access in the comparison plan.
+function runHistoricalBootstrapDetailed(inputs, ctx, N, blockYears) {
+  blockYears = blockYears || 5;
+  const comparableInputs = {
+    ...inputs,
+    withdrawalOrder: getWithdrawalAccountKeys(),
+    allowEmergencyFallback: true
+  };
+  const seedSource = 'historical-bootstrap|' + JSON.stringify(comparableInputs) + JSON.stringify(expenses)
+    + JSON.stringify(debts) + JSON.stringify(futureExpenses) + JSON.stringify(windfalls)
+    + JSON.stringify(insurancePolicies) + JSON.stringify(brokeragePies) + '|' + N + '|' + blockYears;
+  mcRandom = mulberry32(hashStringToSeed(seedSource));
+  let successes = 0;
+  const series = HISTORICAL_YEARS.map(y => HISTORICAL_SP500_RETURNS[y]);
+  const maxBlockStart = Math.max(0, series.length - blockYears);
+  for (let i = 0; i < N; i++) {
+    const path = [];
+    while (path.length <= ctx.maxYears) {
+      const start = Math.floor(mcRandom() * (maxBlockStart + 1));
+      for (let b = 0; b < blockYears && path.length <= ctx.maxYears; b++) path.push(series[start + b]);
+    }
+    const shocks = { pre: {}, post: {} };
+    path.forEach((ret, y) => {
+      const age = inputs.currentAge + y;
+      if (age < inputs.retirementAge) shocks.pre[y] = ret;
+      else shocks.post[age - inputs.retirementAge] = ret;
+    });
+    if (projectRun(comparableInputs, ctx, false, shocks).success) successes++;
+  }
+  return { score: successes / N * 100, successes, failures: N - successes };
 }
 function renderHistoricalBacktest(inputs, ctx) {
   const backtest = runHistoricalBacktest(inputs, ctx);
@@ -10709,7 +10770,12 @@ function render() {
   if (els('totalAssetsTile')) els('totalAssetsTile').textContent = fmtMoney(totalCurrentAssets);
   renderCheckpointTracker(inputs, rows);
   renderInheritedAccountBreakdown(inputs, rows);
-  const netWorthToday = totalCurrentAssets - debts.reduce((s,d) => s + (+d.balance||0), 0);
+  // Future-dated loans belong in their scheduled projection years; they are not debts today.
+  const currentDebtBalance = debts.reduce((s,d) => {
+    const startsNow = d.startAge == null || d.startAge === '' || (+d.startAge <= inputs.currentAge);
+    return s + (startsNow ? (+d.balance || 0) : 0);
+  }, 0);
+  const netWorthToday = totalCurrentAssets - currentDebtBalance;
   const rowAtRetirement = rows.find(r => r.age === retirementAge);
   const netWorthAtRetirement = rowAtRetirement ? rowAtRetirement.netWorth : (rows.length ? rows[rows.length-1].netWorth : netWorthToday);
 
@@ -10721,6 +10787,7 @@ function render() {
     withdrawalOrder: getWithdrawalAccountKeys(),
     allowEmergencyFallback: true
   }, ctx, 1000);
+  const historicalDetails = runHistoricalBootstrapDetailed(inputs, ctx, 1000, 5);
 
   // Mini Monte Carlo scores for all three spending bases (Job Loss / Must Spend / Like to Spend), shown
   // right in the header toggle so you can compare all three at a glance without switching the active one.
@@ -10783,11 +10850,18 @@ function render() {
   if (els('mcFailureAges')) els('mcFailureAges').textContent = mcDetails.failures
     ? `Earliest ${mcDetails.earliestFailureAge}; median ${Math.round(mcDetails.medianFailureAge)}`
     : 'No failures';
+  if (els('mcDepletionFailures')) els('mcDepletionFailures').textContent = mcDetails.depletionFailures.toLocaleString();
+  if (els('mcRecoveredFailures')) els('mcRecoveredFailures').textContent = mcDetails.recoveredFailures.toLocaleString();
+  if (els('mcNegativeEnding')) els('mcNegativeEnding').textContent = mcDetails.negativeEndingRuns.toLocaleString();
   if (els('mcAllAssetsScore')) {
     els('mcAllAssetsScore').textContent = `${Math.round(allAssetsDetails.score)}%`;
     els('mcAllAssetsScore').parentElement.title = 'Uses every investment account as an emergency fallback, including accounts excluded from the normal withdrawal strategy.';
   }
-  els('scoreTitle').textContent = `Retirement Confidence Score — ${label}`;
+  if (els('mcHistoricalScore')) {
+    els('mcHistoricalScore').textContent = `${Math.round(historicalDetails.score)}%`;
+    els('mcHistoricalScore').parentElement.title = 'Uses 1,000 five-year blocks sampled from actual S&P 500 annual returns and permits every account as an emergency withdrawal source.';
+  }
+  els('scoreTitle').textContent = `Conservative Stress Score — ${label}`;
 
   const longevityLabel = depletionAge ? `Runs out at age ${depletionAge}` : `Lasts through age ${lifeExpectancy}`;
   const longevityClass = depletionAge ? 'warn' : 'ok';
