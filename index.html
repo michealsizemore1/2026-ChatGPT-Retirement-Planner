@@ -773,6 +773,12 @@
         <div class="stat"><div class="label">10th-percentile ending net worth</div><div class="value" id="mcP10Ending">—</div></div>
         <div class="stat"><div class="label">Failed simulations</div><div class="value" id="mcFailureCount">—</div></div>
         <div class="stat"><div class="label">Shortfall age among failures</div><div class="value" id="mcFailureAges">—</div></div>
+        <div class="stat"><div class="label">All-assets emergency success</div><div class="value" id="mcAllAssetsScore">—</div></div>
+      </div>
+
+      <div class="card" id="dataQualityCard">
+        <h3 onclick="toggleCard(this)">Plan Data Checks<span class="sub-label">Automatic warnings for assumptions and possible double counting</span></h3>
+        <div id="dataQualityWarnings"></div>
       </div>
 
       <div class="results-grid" id="statCards"></div>
@@ -1640,6 +1646,17 @@
           <div class="field"><label>Volatility, in retirement (%)</label><input type="number" id="postStdev" value="12" step="0.5"></div>
         </div>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.6;">These volatility figures apply to your TSP and any "Market-linked" brokerage pies (100% C/S/I funds, no bonds, historically runs roughly 17-19% annual standard deviation). Any pie you mark "Cash-like" on the Investments page (e.g. a T-bills/SGOV bridge) ignores this and grows at its own fixed rate instead — it won't get shaken around by this volatility.</p>
+      </div>
+
+      <div class="card">
+        <h3 onclick="toggleCard(this)">Fees &amp; Spending Phases<span class="sub-label">Account costs and the retirement spending smile</span></h3>
+        <div class="field"><label>Annual investment fees (% of invested assets)</label><input type="number" id="investmentFee" value="0.10" min="0" max="5" step="0.05"></div>
+        <div class="two-col">
+          <div class="field"><label>Spending decline begins at age</label><input type="number" id="spendingDeclineStartAge" value="65" min="50" max="100"></div>
+          <div class="field"><label>Annual non-medical spending decline (%)</label><input type="number" id="spendingDeclineRate" value="1" min="0" max="10" step="0.1"></div>
+        </div>
+        <div class="field"><label>Minimum lifestyle spending (% of starting level)</label><input type="number" id="spendingFloorPct" value="75" min="25" max="100" step="1"></div>
+        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.55;">Fees reduce investment returns every year. The spending phase lowers non-medical lifestyle expenses after the selected age, but never below either the percentage floor or Must Spend. Housing, debt, insurance, and medical costs are not reduced.</p>
       </div>
 
       <div class="card">
@@ -6397,6 +6414,10 @@ function readInputs() {
     postReturn: +els('postReturn').value/100,
     preStdev: +els('preStdev').value/100,
     postStdev: +els('postStdev').value/100,
+    investmentFee: els('investmentFee') ? (+els('investmentFee').value || 0)/100 : 0,
+    spendingDeclineStartAge: els('spendingDeclineStartAge') ? (+els('spendingDeclineStartAge').value || 65) : 65,
+    spendingDeclineRate: els('spendingDeclineRate') ? (+els('spendingDeclineRate').value || 0)/100 : 0,
+    spendingFloorPct: els('spendingFloorPct') ? (+els('spendingFloorPct').value || 75)/100 : 0.75,
     inflation: +els('inflation').value/100,
     medicalInflation: +els('medicalInflation').value/100,
     ssCola: +els('ssCola').value/100,
@@ -6779,7 +6800,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
       ltcCostThisYear = inputs.ltcAnnualCost * medicalInflatorNow;
       if (age < inputs.retirementAge) {
         const fromRoth = Math.min(ltcCostThisYear, balRoth); balRoth -= fromRoth; addDirectWithdrawal('roth', fromRoth);
-        if (ltcCostThisYear - fromRoth > 0.01) markShortfall();
+        let ltcUnfunded = ltcCostThisYear - fromRoth;
+        if (ltcUnfunded > 0.01 && inputs.allowEmergencyFallback) ltcUnfunded = withdrawInOrder(ltcUnfunded, effectiveWithdrawalOrder.filter(k => k !== 'roth'));
+        if (ltcUnfunded > 0.01) markShortfall();
       }
     }
 
@@ -7050,8 +7073,8 @@ function projectRun(inputs, ctx, randomize, shocks) {
       contributions = tradContrib+rothContrib+matchContrib+brokerageContribThisYear+excessIncomeSaved;
       contribByAccount.trad = (contribByAccount.trad||0) + tradContrib + matchContrib;
       contribByAccount.roth = (contribByAccount.roth||0) + rothContrib;
-      balTrad = balTrad*(1+preR) + tradContrib + matchContrib;
-      balRoth = balRoth*(1+preR) + rothContrib;
+      balTrad = balTrad*Math.max(0, 1+preR-inputs.investmentFee) + tradContrib + matchContrib;
+      balRoth = balRoth*Math.max(0, 1+preR-inputs.investmentFee) + rothContrib;
       // Each pie grows independently and receives its own monthly contribution (annualized + grown with income).
       // Cash-like pies (e.g. a T-bills/SGOV bridge) grow at their own fixed rate instead of the market return —
       // they're meant to be de-risked ballast, not exposed to the same volatility as equity holdings.
@@ -7059,7 +7082,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         const pieContribThisYear = (+pieContribsMonthly[i] || 0) * 12 * Math.pow(1+inputs.incomeGrowth, y);
         const pieRate = (inputs.brokeragePieRiskTypes && inputs.brokeragePieRiskTypes[i] === 'cash')
           ? (inputs.brokeragePieCashRates ? inputs.brokeragePieCashRates[i] : 0.045) : preR;
-        balBrokeragePies[i] = balBrokeragePies[i]*(1+pieRate) + pieContribThisYear;
+        balBrokeragePies[i] = balBrokeragePies[i]*Math.max(0, 1+pieRate-inputs.investmentFee) + pieContribThisYear;
         contribByAccount['pie_'+i] = (contribByAccount['pie_'+i]||0) + pieContribThisYear;
       }
       // Excess income goes entirely into the single chosen pie (e.g. a cash-like SGOV pie), not spread across all pies.
@@ -7137,13 +7160,17 @@ function projectRun(inputs, ctx, randomize, shocks) {
       const expensesMedicalForYear = survivorshipActive
         ? (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendMedicalSurvivor : jobLossActive ? expTotalsThisYear.jobLossMedicalSurvivor : expTotalsThisYear.medicalSurvivor)
         : (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendMedical : jobLossActive ? expTotalsThisYear.jobLossMedical : expTotalsThisYear.medical);
-      expensesCategoriesAnnual = (expensesNonMedicalForYear * inflator + expensesMedicalForYear * medicalInflator) * spendMult;
+      const mustSpendNonMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendNonMedicalSurvivor : expTotalsThisYear.mustSpendNonMedical;
+      const mustSpendMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendMedicalSurvivor : expTotalsThisYear.mustSpendMedical;
+      const yearsIntoSpendingDecline = Math.max(0, age - inputs.spendingDeclineStartAge);
+      const spendingPhaseFactor = age < inputs.spendingDeclineStartAge ? 1
+        : Math.max(inputs.spendingFloorPct, Math.pow(1-inputs.spendingDeclineRate, yearsIntoSpendingDecline));
+      const phasedNonMedical = Math.max(mustSpendNonMedicalForYear * inflator, expensesNonMedicalForYear * inflator * spendingPhaseFactor);
+      expensesCategoriesAnnual = (phasedNonMedical + expensesMedicalForYear * medicalInflator) * spendMult;
       const expensesInflated = expensesCategoriesAnnual + medicalCostAnnual;
       // Must Spend floor for this year's recurring expenses only (housing/debt/insurance/Tricare-Medicare
       // premiums/SBP premiums don't have a discretionary counterpart modeled, so they're treated as 100%
       // essential below rather than needing their own Must Spend split).
-      const mustSpendNonMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendNonMedicalSurvivor : expTotalsThisYear.mustSpendNonMedical;
-      const mustSpendMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendMedicalSurvivor : expTotalsThisYear.mustSpendMedical;
       const mustSpendCategoriesAnnual = (mustSpendNonMedicalForYear * inflator + mustSpendMedicalForYear * medicalInflator) * spendMult;
       // SBP premiums (survivorship what-if only) are paid while both are alive in that scenario and stop once
       // survivorship kicks in (the retiree's own pay, which funded the premium, has stopped).
@@ -7234,7 +7261,13 @@ function projectRun(inputs, ctx, randomize, shocks) {
         guaranteedIncomeSurplus -= ltcFromSurplus;
         const ltcRemainingAfterSurplus = ltcCostThisYear - ltcFromSurplus;
         const fromRoth = Math.min(ltcRemainingAfterSurplus, balRoth); balRoth -= fromRoth; addDirectWithdrawal('roth', fromRoth);
-        if (ltcRemainingAfterSurplus - fromRoth > 0.01) markShortfall();
+        let ltcUnfunded = ltcRemainingAfterSurplus - fromRoth;
+        if (ltcUnfunded > 0.01 && inputs.allowEmergencyFallback) {
+          const ltcTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack } };
+          ltcUnfunded = withdrawInOrder(ltcUnfunded, effectiveWithdrawalOrder.filter(k => k !== 'roth'), ltcTaxCtx);
+          ordinaryIncomeStack = ltcTaxCtx.stackBox.v;
+        }
+        if (ltcUnfunded > 0.01) markShortfall();
       }
       if (futureExpenseCostThisYear > 0) {
         const feFromSurplus = Math.min(futureExpenseCostThisYear, guaranteedIncomeSurplus);
@@ -7251,9 +7284,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
       let brokPiesGrown = balBrokeragePies.map((b, i) => {
         const pieRate = (inputs.brokeragePieRiskTypes && inputs.brokeragePieRiskTypes[i] === 'cash')
           ? (inputs.brokeragePieCashRates ? inputs.brokeragePieCashRates[i] : 0.045) : postR;
-        return b*(1+pieRate);
+        return b*Math.max(0, 1+pieRate-inputs.investmentFee);
       });
-      let tradGrown = balTrad*(1+postR), rothGrown = balRoth*(1+postR);
+      let tradGrown = balTrad*Math.max(0, 1+postR-inputs.investmentFee), rothGrown = balRoth*Math.max(0, 1+postR-inputs.investmentFee);
       // HYSA now participates in the withdrawal pool, so it's grown here (before withdrawal) instead of the blanket line below.
       let hysaGrown = balHYSA*(1+inputs.hysaRate);
       let remaining = need;
@@ -7613,7 +7646,10 @@ function runMonteCarlo(inputs, ctx, N, shocks) {
 }
 
 function runMonteCarloDetailed(inputs, ctx, N, shocks) {
-  const seedSource = JSON.stringify(inputs) + JSON.stringify(shocks||{}) + JSON.stringify(expenses) + JSON.stringify(debts)
+  const seedInputs = { ...inputs };
+  delete seedInputs.withdrawalOrder;
+  delete seedInputs.allowEmergencyFallback;
+  const seedSource = JSON.stringify(seedInputs) + JSON.stringify(shocks||{}) + JSON.stringify(expenses) + JSON.stringify(debts)
     + JSON.stringify(futureExpenses) + JSON.stringify(windfalls) + JSON.stringify(insurancePolicies) + JSON.stringify(brokeragePies) + '|' + N;
   mcRandom = mulberry32(hashStringToSeed(seedSource));
   let successes = 0;
@@ -7642,6 +7678,35 @@ function runMonteCarloDetailed(inputs, ctx, N, shocks) {
     earliestFailureAge: failureAges.length ? failureAges[0] : null,
     medianFailureAge: percentile(failureAges, 0.5)
   };
+}
+
+function renderPlanDataWarnings(inputs, ctx) {
+  const host = els('dataQualityWarnings');
+  if (!host) return;
+  const warnings = [];
+  const escWarn = value => String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (inputs.investmentFee <= 0) warnings.push('Investment fees are set to 0%. Enter the weighted expense ratio or advisory fee for a more conservative projection.');
+  if (inputs.preReturn >= 0.08 || inputs.postReturn >= 0.08) warnings.push('A market return assumption is 8% or higher. Confirm that it is nominal, diversified, and before fees.');
+  if (inputs.spendingDeclineRate > 0.03) warnings.push('The retirement spending decline exceeds 3% per year; verify that this does not understate later-life lifestyle costs.');
+  if (inputs.spendingFloorPct < 0.60) warnings.push('The lifestyle spending floor is below 60% of the starting level.');
+  const excludedWithMoney = getWithdrawalAccountKeys().filter(k => !inputs.withdrawalOrder.includes(k)).map(k => withdrawalAccountInfo(k)).filter(a => a && a.balance > 0);
+  if (excludedWithMoney.length) warnings.push(`Normal withdrawals exclude ${excludedWithMoney.map(a => a.label).join(', ')} even though those accounts hold money. Compare the All-assets emergency score.`);
+  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const expenseNames = new Map(expenses.map(e => [norm(e.name), e.name]).filter(([n]) => n));
+  [...debts, ...insurancePolicies].forEach(item => {
+    const n = norm(item.name);
+    if (n && expenseNames.has(n)) warnings.push(`Possible double count: "${item.name}" appears both as a recurring expense and in Debt/Insurance.`);
+  });
+  if (expenses.some(e => /\b(rent|mortgage)\b/i.test(e.name||'')) && inputs.rentMonthly > 0) warnings.push('A recurring expense name contains Rent or Mortgage while Housing also supplies a housing cost.');
+  if (expenses.some(e => /\b(insurance|tricare|medicare|part b)\b/i.test(e.name||'')) && (inputs.insurancePremiumMonthly > 0 || inputs.tricareMonthly > 0)) warnings.push('A recurring expense may duplicate an Insurance or Medical-page premium.');
+  const neverPayoff = (ctx.debtSchedules || []).map((s,i) => s.neverPaysOff ? debts[i].name : null).filter(Boolean);
+  if (neverPayoff.length) warnings.push(`Debt payment may be too low to amortize: ${neverPayoff.join(', ')}.`);
+  if (brokeragePies.some(p => (p.riskType||'equity') !== 'cash')) warnings.push('Brokerage cost basis is not collected, so taxable brokerage withdrawals are conservatively treated as entirely taxable gains.');
+  const apiKeyEl = els('anthropicApiKey');
+  if (apiKeyEl && apiKeyEl.value.trim()) warnings.push('An API key is stored in the planner. It will be removed from the audited backup, but keeping secrets in browser storage is not recommended.');
+  host.innerHTML = warnings.length
+    ? `<ul style="margin:0;padding-left:22px;line-height:1.65;">${warnings.map(w => `<li>${escWarn(w)}</li>`).join('')}</ul>`
+    : '<div style="color:var(--good);font-weight:700;">No material data-quality warnings detected.</div>';
 }
 
 // ---------- Historical Sequence-of-Returns Backtest ----------
@@ -10637,6 +10702,7 @@ function render() {
   renderWithdrawalOrderRows();
   renderWithdrawalOrderOptimizer(inputs);
   renderCombinedExpensesCard(rows, inputs);
+  renderPlanDataWarnings(inputs, ctx);
 
   const totalCurrentAssets = inputs.tradTSPBalance + inputs.rothTSPBalance + inputs.brokerageBalance
     + inputs.checkingBalance + inputs.savingsBalance + inputs.hysaBalance;
@@ -10650,6 +10716,11 @@ function render() {
   // Monte Carlo score
   const mcDetails = runMonteCarloDetailed(inputs, ctx, 1000);
   const score = mcDetails.score;
+  const allAssetsDetails = runMonteCarloDetailed({
+    ...inputs,
+    withdrawalOrder: getWithdrawalAccountKeys(),
+    allowEmergencyFallback: true
+  }, ctx, 1000);
 
   // Mini Monte Carlo scores for all three spending bases (Job Loss / Must Spend / Like to Spend), shown
   // right in the header toggle so you can compare all three at a glance without switching the active one.
@@ -10712,6 +10783,10 @@ function render() {
   if (els('mcFailureAges')) els('mcFailureAges').textContent = mcDetails.failures
     ? `Earliest ${mcDetails.earliestFailureAge}; median ${Math.round(mcDetails.medianFailureAge)}`
     : 'No failures';
+  if (els('mcAllAssetsScore')) {
+    els('mcAllAssetsScore').textContent = `${Math.round(allAssetsDetails.score)}%`;
+    els('mcAllAssetsScore').parentElement.title = 'Uses every investment account as an emergency fallback, including accounts excluded from the normal withdrawal strategy.';
+  }
   els('scoreTitle').textContent = `Retirement Confidence Score — ${label}`;
 
   const longevityLabel = depletionAge ? `Runs out at age ${depletionAge}` : `Lasts through age ${lifeExpectancy}`;
