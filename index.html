@@ -702,11 +702,10 @@
         <span class="dollar-toggle-btn spending-basis-toggle-btn" data-mode="mustspend" onclick="setSpendingBasis('mustspend')"><span class="mc-mini-score" id="mcMiniMustspend"></span><span>Must Spend</span><span class="mc-mini-longevity" id="mcMiniLongevityMustspend" title="Ending net worth if your spouse lives to their life expectancy, projected under this basis"></span></span>
         <span class="dollar-toggle-btn spending-basis-toggle-btn active" data-mode="liketo" onclick="setSpendingBasis('liketo')"><span class="mc-mini-score" id="mcMiniLiketo"></span><span>Like to Spend</span><span class="mc-mini-longevity" id="mcMiniLongevityLiketo" title="Ending net worth if your spouse lives to their life expectancy, projected under this basis"></span></span>
       </div>
-      <div class="job-loss-date-wrap" title="If Job Loss is selected above, civilian salary and paycheck contributions stop on this date. Pension and VA disability continue. The reduced Job Loss expense column applies only until retirement; normal Like to Spend expenses resume at retirement.">
+      <div class="job-loss-date-wrap" title="If Job Loss is selected above, the projection stays on normal income/Like to Spend until this date, then switches to zero income, zero TSP/brokerage contributions, and the Job Loss expense column">
         <input type="date" id="jobLossDate" onchange="setJobLossDate(this.value)">
         <span id="jobLossDateHint"></span>
       </div>
-      <div style="font-size:13.5px;color:var(--muted);margin-top:5px;line-height:1.35;max-width:760px;">Job Loss assumes civilian salary and paycheck contributions stop from this date through retirement. Pension and VA disability continue normally, and any after-tax surplus is saved to HYSA. Reduced Job Loss expenses apply only during unemployment; Like to Spend resumes at retirement. Your strategy is to leave Traditional TSP untouched until age 59½ after a pre-55 separation, avoiding the additional 10% tax.</div>
     </div>
   </div>
 </header>
@@ -764,33 +763,15 @@
         <div class="score-ring" id="scoreRing">—</div>
         <div class="score-text">
           <h3 id="scoreTitle">Retirement Confidence Score</h3>
-          <p id="scoreDesc">Conservative stress test: 1,000 scenarios use independent annual return draws at your selected volatility. A run fails after any uncovered annual shortfall through age <span id="scoreLifeExp"></span>, even if later income or market gains would allow balances to recover.</p>
+          <p id="scoreDesc">Based on 1,000 simulated market scenarios with randomized annual returns, this is the share of scenarios where your money lasts through age <span id="scoreLifeExp"></span> without running short.</p>
         </div>
-      </div>
-
-      <div class="results-grid" id="mcDiagnostics">
-        <div class="stat"><div class="label">Successful simulations</div><div class="value" id="mcSuccessCount">—</div></div>
-        <div class="stat"><div class="label">Median ending net worth</div><div class="value" id="mcMedianEnding">—</div></div>
-        <div class="stat"><div class="label">10th-percentile ending net worth</div><div class="value" id="mcP10Ending">—</div></div>
-        <div class="stat"><div class="label">Failed simulations</div><div class="value" id="mcFailureCount">—</div></div>
-        <div class="stat"><div class="label">Shortfall age among failures</div><div class="value" id="mcFailureAges">—</div></div>
-        <div class="stat"><div class="label">Failures with portfolio depletion</div><div class="value" id="mcDepletionFailures">—</div></div>
-        <div class="stat"><div class="label">Shortfall but positive ending net worth</div><div class="value" id="mcRecoveredFailures">—</div></div>
-        <div class="stat"><div class="label">Ending net worth below zero</div><div class="value" id="mcNegativeEnding">—</div></div>
-        <div class="stat"><div class="label">All-assets emergency success</div><div class="value" id="mcAllAssetsScore">—</div></div>
-        <div class="stat"><div class="label">Historically calibrated success</div><div class="value" id="mcHistoricalScore">—</div></div>
-      </div>
-
-      <div class="note" style="margin-top:-8px;margin-bottom:18px;">Use the historically calibrated score for comparison with retirement programs that model real market sequences. The conservative score above remains the stricter stress test. “All-assets emergency” uses the same conservative returns but permits every investment and cash account to prevent a shortfall.</div>
-
-      <div class="card" id="dataQualityCard">
-        <h3 onclick="toggleCard(this)">Plan Data Checks<span class="sub-label">Automatic warnings for assumptions and possible double counting</span></h3>
-        <div id="dataQualityWarnings"></div>
       </div>
 
       <div class="results-grid" id="statCards"></div>
 
       <div class="compare-box" id="compareBox"></div>
+      <div id="mcDiagnosticsCard" style="margin:4px 0;"></div>
+      <div id="crisisStressCard" style="margin:4px 0;"></div>
 
       <div class="chart-wrap">
         <h2>Projected Balances<span id="dollarModeNote" style="font-size:16.5px; font-weight:400; color:var(--muted);"></span></h2>
@@ -882,10 +863,6 @@
           <input type="checkbox" id="spouseWorks">
           <label for="spouseWorks">Spouse has their own earnings record / Social Security</label>
         </div>
-        <div class="two-col" id="spouseOwnBenefitFields" style="display:none;">
-          <div class="field"><label>Spouse's own Social Security ($/mo, today's $)</label><input type="number" id="spouseSSMonthly" value="0" min="0" step="50"></div>
-          <div class="field"><label>Spouse's own Social Security start age</label><input type="number" id="spouseSSStartAge" value="67" min="62" max="70"></div>
-        </div>
         <p style="font-size:16.5px;color:var(--muted);margin:2px 0 0;">The plan runs through whichever of you two lives longer, so household spending doesn't stop early for the survivor.</p>
       </div>
     </div>
@@ -947,7 +924,7 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Guaranteed Income</h3>
         <div class="two-col">
-          <div class="field"><label>Your Social Security ($/mo, today's $)</label><input type="number" id="ssMonthly" value="2239" step="50"></div>
+          <div class="field"><label>Your Social Security ($/mo, today's $)</label><input type="number" id="ssMonthly" value="2208" step="50"></div>
           <div class="field"><label>Your SS start age</label><input type="number" id="ssAge" value="65" min="62" max="70" oninput="syncDateFromAge('ssAge','ssAgeDate','ssAgeDateHint','currentAge')">
             <input type="month" id="ssAgeDate" class="age-date-input" value="2038-11" oninput="syncAgeDate('ssAgeDate','ssAge','ssAgeDateHint','currentAge')">
             <div id="ssAgeDateHint" class="age-date-hint"></div>
@@ -965,12 +942,12 @@
         <div class="three-col">
           <div class="field"><label>Annuity payout ($/mo, today's $)</label><input type="number" id="annuityMonthly" value="0" step="50"></div>
           <div class="field"><label>Annuity start age</label><input type="number" id="annuityStartAge" value="0" min="40" max="95" oninput="syncDateFromAge('annuityStartAge','annuityStartAgeDate','annuityStartAgeDateHint','currentAge')">
-            <input type="month" id="annuityStartAgeDate" class="age-date-input" oninput="syncAgeDate('annuityStartAgeDate','annuityStartAge','annuityStartAgeDateHint','currentAge')">
+            <input type="month" id="annuityStartAgeDate" class="age-date-input" oninput="syncAgeDate('annuityStartAgeDate','annuityStartAge','annuityStartAgeDateHint','currentAge')" value="">
             <div id="annuityStartAgeDateHint" class="age-date-hint"></div>
           </div>
           <div class="field"><label>Annuity yearly increase (%)</label><input type="number" id="annuityGrowth" value="0" step="0.1"></div>
         </div>
-        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.6;">Social Security taxation is calculated with the married-filing-jointly provisional-income thresholds (up to 85% may be taxable), and the annuity is taxable, before comparing guaranteed income with spending. Pensions and VA disability are set above — VA disability remains fully tax-free.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.6;">Social Security (85%) and the annuity are taxed (Federal + Idaho) before comparing guaranteed income to spending (see the Income Gap &amp; Withdrawals page). Pensions and VA disability are set in the Pensions &amp; VA Disability card near the top of this page — VA disability stays fully tax-free.</p>
       </div>
 
       <div class="card">
@@ -995,21 +972,21 @@
         <h3 onclick="toggleCard(this)">Survivorship: SBP &amp; DIC<span class="sub-label">What-if only — does not change your main plan or confidence score</span></h3>
         <p style="font-size:16.5px;color:var(--muted);margin:0 0 10px;line-height:1.6;">Set an assumed age below to turn this on as a scenario on the Explorers page. From that age forward in that scenario only, both pensions and VA disability stop, Social Security drops to the single survivor benefit, and SBP/DIC (if entered) take over. Leave the age blank/0 to leave this off entirely.</p>
         <div class="three-col">
-          <div class="field"><label>Assumed age you predecease your spouse</label><input type="number" id="survivorshipDeathAge" value="70" min="0" max="100"></div>
+          <div class="field"><label>Assumed age you predecease your spouse</label><input type="number" id="survivorshipDeathAge" value="75" min="0" max="100"></div>
           <div class="field"><label>Spouse's spending after you're gone (% of normal)</label><input type="number" id="survivorSpendingPct" value="55" min="10" max="150" step="5"></div>
           <div class="field"><label>Life insurance payout to spouse (VGLI, lump sum)</label><input type="number" id="survivorLifeInsuranceAmount" value="100000" min="0" step="1000"></div>
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">Paid out as a one-time lump sum the year this scenario starts, added straight to the brokerage pies as another resource to help fund your spouse's expenses. Set to $0 if not applicable.</p>
         <hr class="divider">
         <div class="mini-label">SBP on Military Pension</div>
-        <div class="checkbox-row"><input type="checkbox" id="sbp1Enabled" checked onchange="render()"><label for="sbp1Enabled">SBP elected on Military Pension</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="sbp1Enabled" onchange="render()" checked><label for="sbp1Enabled">SBP elected on Military Pension</label></div>
         <div class="two-col">
           <div class="field"><label>SBP coverage (% of pension)</label><input type="number" id="sbp1Pct" value="55" min="0" max="55" step="1"></div>
           <div class="field"><label>SBP premium you pay now ($/mo)</label><input type="number" id="sbp1PremiumMonthly" value="162" step="5"></div>
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">= <span id="sbp1Computed">$0</span>/mo to spouse, taxable, based on your current Military Pension amount</p>
         <div class="mini-label">Survivor Annuity on Government Civil Service Pension</div>
-        <div class="checkbox-row"><input type="checkbox" id="sbp2Enabled" checked onchange="render()"><label for="sbp2Enabled">Survivor annuity elected on Government Civil Service pension</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="sbp2Enabled" onchange="render()" checked><label for="sbp2Enabled">Survivor annuity elected on Government Civil Service pension</label></div>
         <div class="two-col">
           <div class="field"><label>Survivor annuity coverage (% of pension)</label><input type="number" id="sbp2Pct" value="50" min="0" max="50" step="1"></div>
           <div class="field"><label>Premium you pay now ($/mo)</label><input type="number" id="sbp2PremiumMonthly" value="0" step="5"></div>
@@ -1025,11 +1002,11 @@
         <h3 onclick="toggleCard(this)">Survivorship: Expense Adjustments<span class="sub-label">What changes about your spouse's costs once you're gone</span></h3>
         <p style="font-size:16.5px;color:var(--muted);margin:0 0 10px;line-height:1.6;">Every recurring cost — housing, medical, and everything from the Expenses, Debt, and Insurance pages — is listed below, checked "continues" by default with its current amount. Uncheck anything that stops once you're gone (paid off by a life insurance payout, a debt that was solely yours, a subscription only you used), or edit the amount if it would change rather than disappear (a smaller place, a new cost like paid help). This feeds both the numbers below and the real projection on the Explorers page.</p>
         <div class="mini-label" style="margin-bottom:2px;">Housing</div>
-        <div class="checkbox-row"><input type="checkbox" id="survivorHousingContinues" checked onchange="render()"><label for="survivorHousingContinues">Housing (rent or mortgage/property tax/insurance) continues</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="survivorHousingContinues" onchange="render()" checked><label for="survivorHousingContinues">Housing (rent or mortgage/property tax/insurance) continues</label></div>
         <div class="field"><label>Override housing cost once you're gone ($/mo, today's $ — leave blank to use the actual projected cost)</label><input type="number" id="survivorHousingAmountOverride" value="2000" placeholder="Use projected cost" step="25"></div>
         <hr class="divider">
         <div class="mini-label" style="margin-bottom:2px;">Medical (Tricare / Medicare Part B / FEDVIP)</div>
-        <div class="checkbox-row"><input type="checkbox" id="survivorMedicalContinues" checked onchange="render()"><label for="survivorMedicalContinues">Her Tricare/Medicare Part B/FEDVIP continues</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="survivorMedicalContinues" onchange="render()" checked><label for="survivorMedicalContinues">Her Tricare/Medicare Part B/FEDVIP continues</label></div>
         <div class="field"><label>Her own FEDVIP once she's on Medicare ($/mo, today's $)</label><input type="number" id="survivorFedvipMonthly" value="116" step="5"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;background:var(--teal-light,#e6f3f1);border-radius:8px;padding:10px 14px;margin-top:8px;">
           <span style="font-size:16px;color:var(--text);">Her <b>Medicare Part B</b> (auto, from Medical page): <b><span id="survivorPartBReadout">$0</span></b>/mo + FEDVIP above</span>
@@ -1066,8 +1043,8 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Investment Contributions<span class="sub-label">How much goes in each pay period</span></h3>
         <div class="two-col">
-          <div class="field"><label>Traditional TSP (% of income)</label><input type="number" id="tradTSPPct" value="11" step="0.5"></div>
-          <div class="field"><label>Roth TSP (% of income)</label><input type="number" id="rothTSPPct" value="11" step="0.5"></div>
+          <div class="field"><label>Traditional TSP (% of income)</label><input type="number" id="tradTSPPct" value="12" step="0.5"></div>
+          <div class="field"><label>Roth TSP (% of income)</label><input type="number" id="rothTSPPct" value="12" step="0.5"></div>
         </div>
         <div class="field"><label>Agency match (up to % of income)</label><input type="number" id="matchPct" value="5" step="0.5"></div>
       </div>
@@ -1081,14 +1058,14 @@
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Excess Income Savings<span class="sub-label">Automatically invest a share of whatever's left over each year, on top of the contributions above</span></h3>
-        <div class="field"><label>Save this % of leftover income (into Brokerage)</label><input type="number" id="excessIncomeSavingsPct" value="25" step="5" min="0" max="100"></div>
+        <div class="field"><label>Save this % of leftover income (into Brokerage)</label><input type="number" id="excessIncomeSavingsPct" value="35" step="5" min="0" max="100"></div>
         <div class="field"><label>Deposit into</label>
           <select id="excessIncomeDestinationPie" onchange="updateExcessIncomeDestination(this.value)"></select>
         </div>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">"Leftover" income = your job income, minus TSP/Roth/agency-match/brokerage contributions above, minus recurring expenses, housing, and debt payments for that year. Only applies while you're still working, and goes entirely into the single pie you pick above (edit pie names on the Investments page).</p>
         <hr class="divider">
         <div class="checkbox-row">
-          <input type="checkbox" id="redirectPaidOffDebtPayments" checked onchange="render()">
+          <input type="checkbox" id="redirectPaidOffDebtPayments" onchange="render()">
           <label for="redirectPaidOffDebtPayments">Once a debt is fully paid off, redirect its whole former payment here (100%, not just the % above)</label>
         </div>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Without this, a paid-off debt (e.g. a car loan) just quietly lowers how much you're spending each year — the freed-up payment is still counted (your projection is correct either way), but it isn't visibly redirected anywhere. With this on, from the month a debt is paid off through retirement, its exact former monthly payment gets swept into the pie above every year on top of the % setting — so it shows up as real, trackable savings instead of just an invisible drop in spending. Only applies before retirement, while you're still earning a paycheck to redirect from — once retired, a paid-off debt still lowers how much your portfolio has to cover each year, it just no longer makes sense to withdraw money you don't need only to immediately reinvest it, which would trigger real, unnecessary tax.</p>
@@ -1149,8 +1126,8 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">TSP — Thrift Savings Plan<span class="sub-label">Agency match always deposits into Traditional TSP</span></h3>
         <div class="two-col">
-          <div class="field"><label>Traditional TSP balance ($)</label><input type="number" id="tradTSPBalance" value="101613" step="1"></div>
-          <div class="field"><label>Roth TSP balance ($)</label><input type="number" id="rothTSPBalance" value="81942" step="1"></div>
+          <div class="field"><label>Traditional TSP balance ($)</label><input type="number" id="tradTSPBalance" value="101951" step="1"></div>
+          <div class="field"><label>Roth TSP balance ($)</label><input type="number" id="rothTSPBalance" value="82367" step="1"></div>
         </div>
       </div>
 
@@ -1166,7 +1143,7 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Bank Accounts<span class="sub-label">Liquidity — not spent down in this projection</span></h3>
         <div class="three-col">
-          <div class="field"><label>Checking ($)</label><input type="number" id="checkingBalance" value="18" step="500"></div>
+          <div class="field"><label>Checking ($)</label><input type="number" id="checkingBalance" value="792" step="500"></div>
           <div class="field"><label>Savings ($)</label><input type="number" id="savingsBalance" value="25" step="500"></div>
           <div class="field"><label>HYSA ($)</label><input type="number" id="hysaBalance" value="7250" step="500"></div>
         </div>
@@ -1238,7 +1215,7 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Housing</h3>
         <div class="two-col">
-          <div class="field"><label>Monthly rent ($)</label><input type="number" id="rentMonthly" value="2600" step="10"></div>
+          <div class="field"><label>Monthly rent ($)</label><input type="number" id="rentMonthly" value="2625" step="10"></div>
           <div class="field"><label>Annual rent growth (%)</label><input type="number" id="rentGrowth" value="3" step="0.1"></div>
         </div>
         <div class="checkbox-row">
@@ -1248,7 +1225,7 @@
         <div class="sub-fields" id="buyHomeFields" style="display:none;">
           <div class="two-col">
             <div class="field"><label>Purchase age</label><input type="number" id="purchaseAge" value="60" min="18" max="95" oninput="syncDateFromAge('purchaseAge','purchaseAgeDate','purchaseAgeDateHint','currentAge')">
-              <input type="month" id="purchaseAgeDate" class="age-date-input" oninput="syncAgeDate('purchaseAgeDate','purchaseAge','purchaseAgeDateHint','currentAge')">
+              <input type="month" id="purchaseAgeDate" class="age-date-input" oninput="syncAgeDate('purchaseAgeDate','purchaseAge','purchaseAgeDateHint','currentAge')" value="">
               <div id="purchaseAgeDateHint" class="age-date-hint"></div>
             </div>
             <div class="field"><label>Home price ($)</label><input type="number" id="homePrice" value="350000" step="5000"></div>
@@ -1298,7 +1275,7 @@
         <div class="total-row"><span>Job Loss total (excl. housing)</span><span id="expenseJobLossTotal">$0</span></div>
         <div class="total-row"><span>Must Spend total (excl. housing)</span><span id="expenseMustSpendTotal">$0</span></div>
         <div class="total-row"><span>Like to Spend total (excl. housing)</span><span id="expenseTotal">$0</span></div>
-        <p style="font-size:15.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">The <b>Like to Spend / Job Loss / Must Spend</b> toggle controls the projection. Must Spend is a full-plan essential budget. Job Loss is temporary: it begins on the selected Job Loss date and ends at retirement, when Like to Spend resumes automatically. Pension and VA disability continue during unemployment; only civilian salary and paycheck contributions stop. Leave a Job Loss amount blank and it falls back to Must Spend. Dynamic guardrails never cut below Must Spend, and housing, debt, insurance, and medical premiums remain essential. Each row can also have optional <b>Starts / Ends</b> dates.</p>
+        <p style="font-size:15.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">The <b>Like to Spend / Job Loss / Must Spend</b> toggle in the header picks which of these three columns actually drives the whole projection — the dashboard, guardrails, the Gap page, Explorers, and every Monte Carlo run all switch together. Whichever ones AREN'T selected still matter: when dynamic spending guardrails (Assumptions page) cut spending in a down market, the cut never pushes recurring expenses below the Must Spend total — housing, debt, insurance, and medical premiums are already treated as 100% essential and are never cut. Job Loss is a test column — leave a row's Job Loss blank and it falls back to that row's Must Spend amount. Each row also has its own <b>Starts / Ends</b> date pickers below it — leave both blank for an expense that applies the whole plan (the default), or set one or both for something that begins or ends partway through retirement (childcare ending, a car payment finishing, a hobby starting once you have more free time).</p>
       </div>
 
       <div class="card">
@@ -1373,7 +1350,7 @@
             <tbody id="gapRows"></tbody>
           </table>
         </div>
-        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Guaranteed income here is shown after progressive federal and Idaho income tax using the standard deduction. VA disability stays untaxed; Social Security uses the married-filing-jointly provisional-income calculation, under which up to 85% may be taxable. A positive surplus means income covers spending; a red gap is pulled from accounts in the Money Flows order. Ordinary pre-retirement years are omitted; the separate Job Loss scenario does model pre-retirement spending and shortfalls.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Guaranteed income here is shown after federal + Idaho income tax (progressive, using your standard deduction) — VA disability stays untaxed, but Social Security (85%), pension, and annuity income all have real tax owed on them before they're available to spend. A positive surplus means guaranteed income covers that year's spending with room to spare; a gap (shown in red) is the shortfall pulled from your accounts in the order set on the Money Flows page. Pre-retirement years aren't shown — spending and withdrawals aren't tracked against the portfolio until retirement.</p>
       </div>
     </div>
 
@@ -1405,8 +1382,8 @@
         <h3 onclick="toggleCard(this)">Post-Medicare — Part B<span class="sub-label">Each of you separately, starting at your own Medicare eligibility age. Neither of you needs Part D.</span></h3>
         <div class="field"><label>Medicare eligibility age (both of you)</label><input type="number" id="medicareAge" value="65" min="60" max="75"></div>
         <div class="two-col">
-          <div class="field"><label>Your Part B premium ($/mo, today's $)</label><input type="number" id="partBUserMonthly" value="202.90" step="0.10"></div>
-          <div class="field"><label>Spouse's Part B premium ($/mo, today's $)</label><input type="number" id="partBSpouseMonthly" value="202.90" step="0.10"></div>
+          <div class="field"><label>Your Part B premium ($/mo, today's $)</label><input type="number" id="partBUserMonthly" value="185" step="5"></div>
+          <div class="field"><label>Spouse's Part B premium ($/mo, today's $)</label><input type="number" id="partBSpouseMonthly" value="185" step="5"></div>
         </div>
         <hr class="divider">
         <div class="mini-label" style="margin-bottom:2px;">RMDs &amp; IRMAA</div>
@@ -1434,11 +1411,11 @@
         </div>
         <div class="sub-fields" id="ltcFields">
           <div class="two-col">
-            <div class="field"><label>LTC start age (spouse's age)</label><input type="number" id="ltcStartAge" value="92" min="60" max="105" oninput="syncDateFromAge('ltcStartAge','ltcStartAgeDate','ltcStartAgeDateHint','spouseAge')">
-              <input type="month" id="ltcStartAgeDate" class="age-date-input" oninput="syncAgeDate('ltcStartAgeDate','ltcStartAge','ltcStartAgeDateHint','spouseAge')">
+            <div class="field"><label>LTC start age (spouse's age)</label><input type="number" id="ltcStartAge" value="93" min="60" max="105" oninput="syncDateFromAge('ltcStartAge','ltcStartAgeDate','ltcStartAgeDateHint','spouseAge')">
+              <input type="month" id="ltcStartAgeDate" class="age-date-input" oninput="syncAgeDate('ltcStartAgeDate','ltcStartAge','ltcStartAgeDateHint','spouseAge')" value="2068-11">
               <div id="ltcStartAgeDateHint" class="age-date-hint"></div>
             </div>
-            <div class="field"><label>Duration (years)</label><input type="number" id="ltcDuration" value="3" min="1" max="20"></div>
+            <div class="field"><label>Duration (years)</label><input type="number" id="ltcDuration" value="2" min="1" max="20"></div>
           </div>
           <div class="field">
             <label>Type of care (Boise, ID area estimates)</label>
@@ -1476,7 +1453,7 @@
         <div class="checkbox-row"><input type="checkbox" id="estateHealthcareDirective"><label for="estateHealthcareDirective">Healthcare Directive / Living Will</label></div>
         <div class="checkbox-row"><input type="checkbox" id="estateTrust"><label for="estateTrust">Trust established</label></div>
         <div class="checkbox-row"><input type="checkbox" id="estateBeneficiaries"><label for="estateBeneficiaries">Beneficiaries reviewed in the last 2 years</label></div>
-        <div class="field" style="margin-top:10px;"><label>Notes</label><input type="text" id="estateNotes" placeholder="e.g. attorney contact, document location"></div>
+        <div class="field" style="margin-top:10px;"><label>Notes</label><input type="text" id="estateNotes" placeholder="e.g. attorney contact, document location" value=""></div>
       </div>
 
       <div class="card" id="heirBreakdownWrap">
@@ -1592,7 +1569,7 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Federal<span class="sub-label">2026 brackets, Married Filing Jointly (10/12/22/24/32/35/37%)</span></h3>
         <div class="field"><label>Standard deduction ($/yr, MFJ)</label><input type="number" id="stdDeduction" value="32200" step="100"></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Social Security and the spousal benefit use the married-filing-jointly provisional-income calculation, so the taxable share can range from 0% to 85%. VA disability remains fully tax-free. Both pensions and annuity income are fully taxable.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Social Security and spousal benefit are treated as 85% taxable (typical once other income is substantial); VA disability stays fully tax-free and isn't included. Both pensions and annuity income are fully taxable.</p>
       </div>
 
       <div class="card">
@@ -1650,24 +1627,13 @@
         <h3 onclick="toggleCard(this)">Growth Assumptions<span class="sub-label">Applies to TSP and brokerage</span></h3>
         <div class="two-col">
           <div class="field"><label>Return before retirement (%/yr)</label><input type="number" id="preReturn" value="7" step="0.1"></div>
-          <div class="field"><label>Volatility, pre-retirement (%)</label><input type="number" id="preStdev" value="12" step="0.5"></div>
+          <div class="field"><label>Volatility, pre-retirement (%)</label><input type="number" id="preStdev" value="18" step="0.5"></div>
         </div>
         <div class="two-col">
           <div class="field"><label>Return during retirement (%/yr)</label><input type="number" id="postReturn" value="7" step="0.1"></div>
-          <div class="field"><label>Volatility, in retirement (%)</label><input type="number" id="postStdev" value="12" step="0.5"></div>
+          <div class="field"><label>Volatility, in retirement (%)</label><input type="number" id="postStdev" value="18" step="0.5"></div>
         </div>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.6;">These volatility figures apply to your TSP and any "Market-linked" brokerage pies (100% C/S/I funds, no bonds, historically runs roughly 17-19% annual standard deviation). Any pie you mark "Cash-like" on the Investments page (e.g. a T-bills/SGOV bridge) ignores this and grows at its own fixed rate instead — it won't get shaken around by this volatility.</p>
-      </div>
-
-      <div class="card">
-        <h3 onclick="toggleCard(this)">Fees &amp; Spending Phases<span class="sub-label">Account costs and the retirement spending smile</span></h3>
-        <div class="field"><label>Annual investment fees (% of invested assets)</label><input type="number" id="investmentFee" value="0.10" min="0" max="5" step="0.05"></div>
-        <div class="two-col">
-          <div class="field"><label>Spending decline begins at age</label><input type="number" id="spendingDeclineStartAge" value="65" min="50" max="100"></div>
-          <div class="field"><label>Annual non-medical spending decline (%)</label><input type="number" id="spendingDeclineRate" value="1" min="0" max="10" step="0.1"></div>
-        </div>
-        <div class="field"><label>Minimum lifestyle spending (% of starting level)</label><input type="number" id="spendingFloorPct" value="75" min="25" max="100" step="1"></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.55;">Fees reduce investment returns every year. The spending phase lowers non-medical lifestyle expenses after the selected age, but never below either the percentage floor or Must Spend. Housing, debt, insurance, and medical costs are not reduced.</p>
       </div>
 
       <div class="card">
@@ -1725,7 +1691,7 @@
             <div class="gr-settings">
               <div class="gr-settings-label">GUARDRAIL SETTINGS <span id="grBandReadout">(±20% of initial withdrawal rate)</span></div>
               <div class="gr-settings-row"><span id="grSettingsLow">$0</span><span id="grSettingsHigh">$0</span></div>
-              <input type="range" class="gr-band-slider" id="guardBandSlider" min="5" max="40" step="1" value="20"
+              <input type="range" class="gr-band-slider" id="guardBandSlider" min="5" max="40" step="1" value="21"
                 oninput="els('guardBand').value=this.value; render();">
               <div class="gr-settings-caption">
                 <span>Lower spending<br><small>Lower chance of adjustment</small></span>
@@ -1735,7 +1701,7 @@
               <!-- guardBand itself is set via the slider above (same 5-40, 1% range/precision) — this field
                    stays in the DOM only because readInputs()/saveState()/applyState() read it by id, but it's
                    no longer shown since it would just duplicate the slider. -->
-              <input type="number" id="guardBand" value="20" step="1" style="display:none;" oninput="render();">
+              <input type="number" id="guardBand" value="21" step="1" style="display:none;" oninput="render();">
               <div class="field" style="margin-top:14px;"><label>Spending adjustment when triggered (%)</label><input type="number" id="guardAdj" value="10" step="1" onchange="render()"></div>
             </div>
 
@@ -4490,6 +4456,29 @@ const LTCG_BRACKETS_MFJ = [
   { upTo: 613700, rate: 0.15 },
   { upTo: Infinity, rate: 0.20 }
 ];
+// ---------- Social Security taxation: IRS provisional-income method ----------
+// Replaces a flat "85% of benefits is taxable" assumption with the IRS's actual tiered formula (the
+// simplified/"quick calculation" version of the Social Security Benefits Worksheet, which matches the
+// full worksheet's result in the vast majority of real situations). Provisional income = other taxable
+// income + tax-exempt interest + half of Social Security benefits; the taxable share of SS then steps up
+// through three tiers (0% / up to 50% / up to 85%) instead of jumping straight to 85% for everyone.
+// The $32,000/$44,000 MFJ thresholds are intentionally left un-inflated — unlike most tax figures in this
+// engine, these have been fixed in the tax code since 1993 and are not indexed for inflation (the
+// so-called Social Security "stealth tax": as incomes rise with inflation, more of each benefit becomes
+// taxable over time, exactly as real law works). "Other income" here is every other already-known
+// taxable guaranteed income source (pension/annuity/SBP) — like the rest of this pre-withdrawal tax
+// estimate, it doesn't attempt to fold in this year's Trad TSP/brokerage withdrawal amount, since that
+// isn't known until after the withdrawal waterfall runs later on; this mirrors the same scope limitation
+// the surrounding federal tax estimate already has, rather than introducing a new one.
+function taxableSocialSecurity(ssBenefits, otherTaxableIncome) {
+  const ss = Math.max(0, ssBenefits);
+  if (ss <= 0) return 0;
+  const other = Math.max(0, otherTaxableIncome);
+  const provisionalIncome = other + 0.5 * ss;
+  if (provisionalIncome <= 32000) return 0;
+  if (provisionalIncome <= 44000) return Math.min(0.5 * ss, 0.5 * (provisionalIncome - 32000));
+  return Math.min(0.85 * ss, 0.85 * (provisionalIncome - 44000) + Math.min(6000, 0.5 * ss));
+}
 function marginalRateFromBrackets(taxableIncome, brackets) {
   const income = Math.max(0, taxableIncome);
   for (const b of brackets) { if (income <= b.upTo) return b.rate; }
@@ -4505,15 +4494,6 @@ function taxOwedFromBrackets(taxableIncome, brackets) {
     lower = b.upTo;
   }
   return tax;
-}
-// IRS Publication 915 simplified MFJ worksheet. Social Security is not automatically 85% taxable:
-// the taxable share depends on provisional income and is capped at 85% of benefits.
-function taxableSocialSecurityMFJ(ssBenefits, otherIncome) {
-  const benefits = Math.max(0, ssBenefits || 0);
-  const provisionalIncome = Math.max(0, otherIncome || 0) + benefits * 0.5;
-  if (provisionalIncome <= 32000) return 0;
-  if (provisionalIncome <= 44000) return Math.min(benefits * 0.5, (provisionalIncome - 32000) * 0.5);
-  return Math.min(benefits * 0.85, (provisionalIncome - 44000) * 0.85 + Math.min(6000, benefits * 0.5));
 }
 // Tax owed on an INCREMENTAL amount stacked on top of baseTaxableIncome — e.g. the real tax bill
 // triggered by a withdrawal when other taxable income already fills the lower brackets — computed
@@ -4786,7 +4766,7 @@ function expenseValForBasis(e) {
 // Job Loss test: the specific calendar date the header toggle's Job Loss basis actually kicks in on —
 // lives outside .page like dollarView/spendingBasis above, so it gets its own dedicated localStorage key
 // rather than the generic per-page saveState() mechanism.
-let jobLossDate = '';
+let jobLossDate = '2026-12-31';
 const JOB_LOSS_DATE_KEY = 'retirementPlannerJobLossDate_v1';
 // Converts an arbitrary future (or past) calendar date into the whole-number age it falls in, the same
 // year-resolution every other age in this engine works at — a job loss "3 months from now" and one
@@ -5315,25 +5295,26 @@ function dismissBackupReminder() {
   if (banner) banner.style.display = 'none';
 }
 
-// The Accounts & Cards registers live in their own localStorage keys inside the embedded tracker. Include
-// those keys in the planner-level backup so "Download backup" really captures the whole non-Vault planner.
-function captureTrackerStorage() {
-  const out = {};
+// Every localStorage key prefix the standalone Accounts & Cards tracker (see TRACKER_HTML) uses for its
+// own data — credit card register/categories, the four bank account registers and their opening
+// balances, per-account notes, trip tracking, and receipt attachments (dynamically keyed per-receipt).
+// The tracker manages all of this itself via its own private sGet/sSet helpers (a separate closure this
+// script can't call into), but localStorage itself is just a page-level Web API, not scoped to any
+// particular <script> block or closure — so it's read/written directly here instead.
+const ACCOUNTS_CARDS_STORAGE_PREFIXES = ['cc-', 'chk-', 'mike-', 'savings-', 'hysa-', 'active-trip', 'rcpt-'];
+function readAccountsCardsBackup() {
+  const backup = {};
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (/^(cc-|chk-|mike-|savings-|hysa-|rcpt-)/.test(key)) out[key] = localStorage.getItem(key);
-    }
-  } catch (e) { /* storage unavailable, ignore */ }
-  return out;
-}
-
-function restoreTrackerStorage(values) {
-  if (!values || typeof values !== 'object') return;
-  try {
-    Object.entries(values).forEach(([key, value]) => {
-      if (/^(cc-|chk-|mike-|savings-|hysa-|rcpt-)/.test(key) && typeof value === 'string') localStorage.setItem(key, value);
+    Object.keys(localStorage).forEach(k => {
+      if (ACCOUNTS_CARDS_STORAGE_PREFIXES.some(p => k === p || k.startsWith(p))) backup[k] = localStorage.getItem(k);
     });
+  } catch (e) { /* storage unavailable, ignore */ }
+  return backup;
+}
+function restoreAccountsCardsBackup(backup) {
+  if (!backup || typeof backup !== 'object') return;
+  try {
+    Object.keys(backup).forEach(k => { if (backup[k] != null) localStorage.setItem(k, backup[k]); });
   } catch (e) { /* storage unavailable, ignore */ }
 }
 
@@ -5343,15 +5324,16 @@ function saveState() {
     if (!el.id) return;
     fields[el.id] = el.type === 'checkbox' ? el.checked : el.value;
   });
-  const state = {
-    fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies,
-    withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode,
-    withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, sharedNotesText,
-    dollarView, spendingBasis, jobLossDate,
-    checkpointBaseline: (typeof checkpointBaseline !== 'undefined' ? checkpointBaseline : null),
-    checkpointHistory: (typeof checkpointHistory !== 'undefined' ? checkpointHistory : []),
-    trackerStorage: captureTrackerStorage()
-  };
+  // checkpointBaseline/checkpointHistory (Plan vs. Actual Checkpoint Tracker) and the Accounts & Cards
+  // register data normally live in their own dedicated localStorage keys, separate from this STORAGE_KEY
+  // blob — included here too, purely so a downloaded backup (downloadBackup()) is a genuinely complete
+  // snapshot instead of silently missing two entire features' worth of data if it's ever used to restore
+  // on a different browser/device. Not restored by the normal applyState()/loadState() boot path below
+  // (same reasoning as sharedNotesText: those two already have their own always-current dedicated keys,
+  // so re-applying a blob that's only as fresh as the last unrelated field edit could clobber a more
+  // recent checkpoint or tracker entry) — only an explicit Restore from Backup applies them, in
+  // restoreFromFile() below.
+  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, sharedNotesText, checkpointBaseline, checkpointHistory, accountsCardsBackup: readAccountsCardsBackup() };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
   return state;
 }
@@ -5361,18 +5343,7 @@ function applyState(state) {
   if (Array.isArray(state.expenses)) expenses = state.expenses;
   if (Array.isArray(state.brokeragePies)) brokeragePies = state.brokeragePies;
   if (Array.isArray(state.debts)) debts = state.debts;
-  if (Array.isArray(state.futureExpenses)) {
-    futureExpenses = state.futureExpenses;
-    // Align the exact legacy vacation entry with the comparison plan: 14 annual charges.
-    // A user-customized vacation schedule is left untouched.
-    futureExpenses.forEach(f => {
-      if (/^vacations?\s*&\s*trips$/i.test(String(f.name || '').trim()) && +f.age === 55 && +f.endAge === 70 && +f.amount === 4992) {
-        f.age = 56;
-        f.endAge = 69;
-        f.dateValue = '2030-05';
-      }
-    });
-  }
+  if (Array.isArray(state.futureExpenses)) futureExpenses = state.futureExpenses;
   if (Array.isArray(state.windfalls)) windfalls = state.windfalls;
   if (Array.isArray(state.insurancePolicies)) insurancePolicies = state.insurancePolicies;
   if (Array.isArray(state.withdrawalOrderState)) withdrawalOrderState = state.withdrawalOrderState;
@@ -5382,27 +5353,6 @@ function applyState(state) {
   if (state.withdrawalProportions && typeof state.withdrawalProportions === 'object') withdrawalProportions = { ...state.withdrawalProportions };
   if (typeof state.excessIncomeDestinationPieName === 'string') excessIncomeDestinationPieName = state.excessIncomeDestinationPieName;
   if (typeof state.rothConversionSourceName === 'string') rothConversionSourceName = state.rothConversionSourceName;
-  if (state.dollarView === 'real' || state.dollarView === 'nominal') {
-    dollarView = state.dollarView;
-    try { localStorage.setItem(DOLLAR_VIEW_KEY, dollarView); } catch (e) { /* ignore */ }
-  }
-  if (state.spendingBasis === 'liketo' || state.spendingBasis === 'mustspend' || state.spendingBasis === 'jobloss') {
-    spendingBasis = state.spendingBasis;
-    try { localStorage.setItem(SPENDING_BASIS_KEY, spendingBasis); } catch (e) { /* ignore */ }
-  }
-  if (typeof state.jobLossDate === 'string') {
-    jobLossDate = state.jobLossDate;
-    try { localStorage.setItem(JOB_LOSS_DATE_KEY, jobLossDate); } catch (e) { /* ignore */ }
-  }
-  if (state.checkpointBaseline && typeof state.checkpointBaseline === 'object') {
-    checkpointBaseline = state.checkpointBaseline;
-    try { localStorage.setItem(CHECKPOINT_BASELINE_KEY, JSON.stringify(state.checkpointBaseline)); } catch (e) { /* ignore */ }
-  }
-  if (Array.isArray(state.checkpointHistory)) {
-    checkpointHistory = state.checkpointHistory;
-    try { localStorage.setItem(CHECKPOINT_HISTORY_KEY, JSON.stringify(state.checkpointHistory)); } catch (e) { /* ignore */ }
-  }
-  restoreTrackerStorage(state.trackerStorage);
   // Deliberately NOT syncing state.sharedNotesText here. This function runs on every normal boot (via
   // loadState()), and the copy of sharedNotesText baked into this state blob is only as fresh as the
   // last time saveState() happened to run for some unrelated field — notes themselves persist through
@@ -5440,18 +5390,7 @@ const EXPENSE_CATEGORIES = ['Food & Groceries','Transportation','Healthcare','Ut
 // essential-floor figure Boldin shows alongside it; it's captured for reference/future stress-testing
 // but doesn't itself change the projection. Existing rows default mustSpend = amount (essential utility
 // bills), except the two clearly-discretionary ones, which default to $0.
-let expenses = [
-  { name:'Intermountain Gas', category:'Utilities', amount:50, survivorContinues:true },
-  { name:'Verizon', category:'Utilities', amount:154 },
-  { name:'Idaho Power', category:'Utilities', amount:90 },
-  { name:'Centurylink', category:'Utilities', amount:105 },
-  { name:'YouTube Premium', category:'Subscriptions', amount:27 },
-  { name:'Ring', category:'Subscriptions', amount:10 },
-  { name:'Sinking Funds', category:'Subscriptions', amount:130, survivorAmount:65, jobLoss:75 },
-  { name:'Planet Fitness', category:'Personal Care', amount:21, survivorContinues:false, jobLoss:0 },
-  { name:'To Cindy', category:'Personal Support', amount:3466, survivorAmount:3050, mustSpend:3050, jobLoss:2026 },
-  { name:'Fun money / Backup ', category:'Personal Support', amount:450, survivorContinues:false, jobLoss:0 }
-];
+let expenses = [{"name":"Intermountain Gas","category":"Utilities","amount":50,"survivorContinues":true},{"name":"Verizon","category":"Utilities","amount":154},{"name":"Idaho Power","category":"Utilities","amount":90},{"name":"Centurylink","category":"Utilities","amount":105},{"name":"YouTube Premium","category":"Subscriptions","amount":27},{"name":"Ring","category":"Subscriptions","amount":10},{"name":"Sinking Funds","category":"Subscriptions","amount":130,"survivorAmount":65,"jobLoss":65},{"name":"Planet Fitness","category":"Personal Care","amount":21,"survivorContinues":false,"jobLoss":0},{"name":"To Cindy","category":"Personal Support","amount":3466,"survivorAmount":3050,"mustSpend":3466,"jobLoss":2050},{"name":"Fun money / Backup ","category":"Entertainment & Travel","amount":420,"survivorContinues":false,"jobLoss":0,"mustSpend":0,"startAge":52,"startDateValue":"2026-06","endAge":55,"endDateValue":"2028-12"}];
 function renderExpenseRows() {
   const container = els('expenseRows');
   container.innerHTML = expenses.map((e,i) => `
@@ -5519,10 +5458,7 @@ function removeExpense(i) { expenses.splice(i,1); renderExpenseRows(); render();
 function renderCombinedExpensesCard(rows, inputs) {
   if (!els('combinedGrandTotal')) return;
   const expensesMonthly = expenses.reduce((s,e) => s + expenseValForBasis(e), 0);
-  const debtMonthly = debts.reduce((s,d) => {
-    const existsToday = d.startAge == null || d.startAge === '' || (+d.startAge <= inputs.currentAge);
-    return s + (existsToday ? (+d.payment || 0) : 0);
-  }, 0);
+  const debtMonthly = debts.reduce((s,d) => s + (+d.payment || 0), 0);
   const insuranceMonthly = insurancePolicies.reduce((s,p) => s + (+p.premium || 0), 0);
   const housingMonthly = (rows && rows.length ? rows[0].housingCost : 0) / 12;
   els('combinedExpenses').textContent = fmtMoney(expensesMonthly) + '/mo';
@@ -5782,11 +5718,7 @@ function renderSurvivorExpenseChecklist() {
 }
 
 // ---------- Future / one-time planned expenses (dynamic rows) ----------
-let futureExpenses = [
-  { name:'Vehicle Purchase #1', age: 62, amount: 12000, recurring:true, endAge: 67, dateValue:'2036-01', survivorContinues:true },
-  { name:'Vehicle Purchase #2', age: 77, amount: 14400, recurring:true, endAge: 82, dateValue:'2051-01', survivorContinues:true },
-  { name:'Vacations & Trips', age: 56, amount: 4992, recurring:true, endAge: 69, dateValue:'2030-05', survivorContinues:false }
-];
+let futureExpenses = [{"name":"Vacations & Trips","age":56,"amount":4992,"recurring":true,"endAge":69,"dateValue":"2030-05","survivorContinues":false}];
 function renderFutureExpenseRows() {
   const container = els('futureExpenseRows');
   if (!container) return;
@@ -5946,11 +5878,7 @@ function setWindfallAgeFromDate(i, monthVal) {
 
 // ---------- Insurance policies (dynamic rows, informational — Estate & Insurance page) ----------
 const INSURANCE_TYPES = ['Life','Long-Term Care','Auto','Home/Renters','Umbrella','Disability','Other'];
-let insurancePolicies = [
-  { name:'State Farm: Car, Renters and Life', type:'Other', premium:127, coverage:250000 },
-  { name:'Trupanion (Buddy)', type:'Other', premium:41, coverage:0 },
-  { name:'VGLI', type:'Life', premium:116, coverage:400000, survivorContinues:false }
-];
+let insurancePolicies = [{"name":"State Farm: Car, Renters and Life","type":"Other","premium":127,"coverage":250000},{"name":"Trupanion (Buddy)","type":"Other","premium":81,"coverage":0},{"name":"VGLI","type":"Life","premium":116,"coverage":400000,"survivorContinues":false}];
 function renderInsuranceRows() {
   const container = els('insuranceRows');
   if (!container) return;
@@ -5976,10 +5904,7 @@ function addInsurancePolicy() { insurancePolicies.push({ name:'New policy', type
 function removeInsurancePolicy(i) { insurancePolicies.splice(i,1); renderInsuranceRows(); render(); }
 
 // ---------- Brokerage pies (dynamic rows, M1 Finance) ----------
-let brokeragePies = [
-  { name:'Sequence of Returns Risk (T-Bills)', balance:375, contribution:300, riskType:'cash', cashRate:3.56 },
-  { name:'All Things Bucket', balance:11857, contribution:716 }
-];
+let brokeragePies = [{"name":"Sequence of Returns Risk (T-Bills)","balance":375,"contribution":300,"riskType":"cash","cashRate":3.56},{"name":"All things Bucket","balance":11857,"contribution":716}];
 function renderBrokeragePieRows() {
   const container = els('brokeragePieRows');
   container.innerHTML = brokeragePies.map((p,i) => `
@@ -6062,7 +5987,7 @@ function updatePieContribution(i, value) {
 
 // ---------- Withdrawal Strategy: ordered list of every individual account money gets drawn from in retirement ----------
 // Order is a flat array of account keys: 'trad', 'roth', 'hysa', and 'pie_0'..'pie_N-1' (index into brokeragePies).
-let withdrawalOrderState = ['trad', 'pie_0', 'pie_1', 'hysa', 'roth'];
+let withdrawalOrderState = ["trad","pie_0","pie_1","hysa","roth"];
 let withdrawalModeCustom = true;
 // Accounts checked OFF in the Withdrawal Strategy list — kept as a separate array (rather than removing
 // them from withdrawalOrderState) so an excluded account still shows in the list at its usual position,
@@ -6074,7 +5999,7 @@ let withdrawalExcludedKeys = [];
 // included: 'balance' (default — proportional to that year's actual balance, exactly the original
 // behavior) or 'percent' (fixed weights you set yourself in withdrawalProportions, independent of how
 // each account's balance drifts over time).
-let withdrawalProportionMode = 'balance';
+let withdrawalProportionMode = 'percent';
 let withdrawalProportions = {}; // { [accountKey]: percent } — only read when withdrawalProportionMode === 'percent'
 
 function getWithdrawalAccountKeys() {
@@ -6223,9 +6148,7 @@ function renderWithdrawalOrderRows() {
 
 // ---------- Debt (dynamic rows) ----------
 const DEBT_CATEGORIES = ['Credit Card','Auto Loan','Student Loan','Personal Loan','Medical Debt','Other'];
-let debts = [
-  { name:'Car Payment', category:'Auto Loan', balance:14028, apr:5.1, payment:712, survivorContinues:false }
-];
+let debts = [{"name":"Car Payment","category":"Auto Loan","balance":14028,"apr":5.1,"payment":712,"survivorContinues":false},{"name":"New Car #1","category":"Auto Loan","balance":60000,"apr":5.1,"payment":1135.02,"startAge":62,"termYears":5},{"name":"New Car #2","category":"Auto Loan","balance":72000,"apr":5.1,"payment":1362.03,"startAge":77,"termYears":5}];
 function renderDebtRows() {
   const container = els('debtRows');
   container.innerHTML = debts.map((d,i) => `
@@ -6378,7 +6301,10 @@ let mcRandom = Math.random; // reseeded at the start of every runMonteCarlo() ba
 function randNormal(mean, stdev) {
   let u = 1 - mcRandom(), v = mcRandom();
   let z = Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
-  return Math.max(-0.999999, mean + z*stdev);
+  // A raw Gaussian draw is technically unbounded, so an extreme tail sample (rare, but not impossible
+  // across thousands of simulated years) could otherwise imply losing more than 100% of an account's
+  // value in one year — not possible for a real, non-leveraged investment. Floor at -100%.
+  return Math.max(-1, mean + z*stdev);
 }
 
 // ---------- Read all inputs ----------
@@ -6438,10 +6364,6 @@ function readInputs() {
     postReturn: +els('postReturn').value/100,
     preStdev: +els('preStdev').value/100,
     postStdev: +els('postStdev').value/100,
-    investmentFee: els('investmentFee') ? (+els('investmentFee').value || 0)/100 : 0,
-    spendingDeclineStartAge: els('spendingDeclineStartAge') ? (+els('spendingDeclineStartAge').value || 65) : 65,
-    spendingDeclineRate: els('spendingDeclineRate') ? (+els('spendingDeclineRate').value || 0)/100 : 0,
-    spendingFloorPct: els('spendingFloorPct') ? (+els('spendingFloorPct').value || 75)/100 : 0.75,
     inflation: +els('inflation').value/100,
     medicalInflation: +els('medicalInflation').value/100,
     ssCola: +els('ssCola').value/100,
@@ -6486,8 +6408,6 @@ function readInputs() {
     spouseLifeExpectancy: +els('spouseLifeExpectancy').value,
     spouseBirthMonth: +els('spouseBirthMonth').value || 1,
     spouseWorks: els('spouseWorks').checked,
-    spouseSSMonthly: +els('spouseSSMonthly').value || 0,
-    spouseSSStartAge: +els('spouseSSStartAge').value || 67,
     spousalPct: +els('spousalPct').value/100,
     spousalStartAge: +els('spousalStartAge').value,
     ltcEnabled: els('ltcEnabled').checked,
@@ -6627,11 +6547,12 @@ function rmdDivisor(age) {
 }
 
 // ---------- IRMAA (Income-Related Monthly Adjustment Amount) ----------
-// Approximate 2025-published CMS Part B surcharge tiers for Married Filing Jointly — both the MAGI
-// thresholds and the surcharge dollar amounts are estimates, not authoritative tax figures, and should be
-// checked against current IRS/CMS guidance as RMD/IRMAA-relevant ages actually approach. Returns the
-// today's-$ monthly surcharge for a given (already inflation-adjusted-for-comparison) MAGI; the caller
-// applies medicalInflator on top, same as the Part B premium fields it's added to.
+// CMS-published 2026 Part B surcharge tiers for Married Filing Jointly (confirmed via the November 2025
+// CMS announcement) — the MAGI thresholds and surcharge dollar amounts here are current as of this
+// update, but should still be checked against current IRS/CMS guidance as RMD/IRMAA-relevant ages
+// actually approach, since these are republished annually. Returns the today's-$ monthly surcharge for a
+// given (already inflation-adjusted-for-comparison) MAGI; the caller applies medicalInflator on top, same
+// as the Part B premium fields it's added to.
 const IRMAA_BRACKETS_MFJ_BASE = [
   { magi: 218000, surcharge: 81.20 },
   { magi: 274000, surcharge: 202.90 },
@@ -6653,8 +6574,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
   let balBrokeragePies = inputs.brokeragePieBalances.slice();
   let balChecking = inputs.checkingBalance, balSavings = inputs.savingsBalance, balHYSA = inputs.hysaBalance;
   let income = inputs.currentIncome;
-  let depletionAge = null, firstShortfallAge = null, shortfallEver = false;
-  let endingInvestable = 0, endingCash = 0, endingNetWorth = 0;
+  let depletionAge = null, shortfallEver = false;
   let investableAtRetirement = null, cashAtRetirement = null;
   let initialWithdrawalRate = null;
   // Roth Conversion planner lifetime totals — accumulated across every year the conversion runs,
@@ -6662,7 +6582,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
   let totalRothConverted = 0, totalRothConversionTax = 0;
   // IRMAA lookback proxy: last iteration's approximate MAGI, used as this year's IRMAA basis (see the
   // comment above medicarePremiumBase below) — starts at 0 since there's no prior year before the plan begins.
-  const magiHistory = [];
+  let prevYearMagi = 0;
   const rows = [];
 
   for (let age = inputs.currentAge; age <= ctx.effectiveLifeExpectancy; age++) {
@@ -6684,22 +6604,26 @@ function projectRun(inputs, ctx, randomize, shocks) {
     // 'jobloss' AND this year is at/after the specific age the job loss is assumed to happen (inputs.jobLossAge,
     // set from the date field under the toggle) — years before that still run on the normal Like to Spend
     // baseline, same as if the toggle weren't on at all.
-    const jobLossSeparationOccurred = spendingBasis === 'jobloss' && inputs.jobLossAge != null && age >= inputs.jobLossAge;
-    const jobLossActive = jobLossSeparationOccurred && age < inputs.retirementAge;
+    const jobLossActive = spendingBasis === 'jobloss' && inputs.jobLossAge != null && age >= inputs.jobLossAge;
     // Job Loss test: if this involuntary separation happens before the calendar year you turn 55
     // (ctx.jobLossQualifiesForRuleOf55 — see buildContext), Traditional TSP isn't just penalized before
     // 59.5, it's genuinely unavailable as a withdrawal source at all until then — a real TSP/401(k) rule,
     // independent of the blanket "Rule of 55 applies" toggle (Taxes page), which only reflects the
     // baseline plan's assumption of separating at 55+. Every place below that could otherwise pull from
     // Traditional TSP during a Job Loss year checks this first.
-    // Personal strategy: after a pre-55 separation, leave Traditional TSP untouched until age 59½
-    // rather than taking an available early distribution and paying the additional 10% tax.
-    const jobLossEarlyPenalty = 0;
-    const tradAvailableForJobLoss = !(jobLossSeparationOccurred && !ctx.jobLossQualifiesForRuleOf55 && age < 59.5);
-    // Same restriction applied to every place that otherwise walks your configured withdrawal order
-    // (LTC is unaffected — it's Roth-only and never touches Trad regardless).
-    const effectiveWithdrawalOrder = tradAvailableForJobLoss ? inputs.withdrawalOrder : inputs.withdrawalOrder.filter(k => k !== 'trad');
-    const markShortfall = () => { shortfallEver = true; if (firstShortfallAge === null) firstShortfallAge = age; };
+    // Job loss before the calendar year of turning 55 disqualifies Rule of 55, meaning BOTH
+    // Traditional TSP is off-limits until 59.5 when job loss disqualifies Rule of 55 — no
+    // penalty-free separation withdrawal is available, so any Trad draw before 59.5 would trigger
+    // the 10% early-withdrawal penalty. Roth TSP *contributions* are always penalty-free (only
+    // earnings face the penalty before 59.5), so Roth stays in the withdrawal order as a bridge
+    // source for the ages-55-to-59.5 gap. Brokerage pies and HYSA remain accessible throughout.
+    const tspAvailableForJobLoss = !(jobLossActive && !ctx.jobLossQualifiesForRuleOf55 && age < 59.5);
+    const tradAvailableForJobLoss = tspAvailableForJobLoss; // kept for legacy references below
+    // Only Traditional TSP is removed from the waterfall when job loss disqualifies Rule of 55;
+    // Roth stays accessible (contributions are penalty-free at any age after separation).
+    const effectiveWithdrawalOrder = tspAvailableForJobLoss
+      ? inputs.withdrawalOrder
+      : inputs.withdrawalOrder.filter(k => k !== 'trad');
 
     // Hoisted up here (rather than declared down near the rest of this year's stats, below) so the
     // mortgage down payment / Long-Term Care / Future Expenses pulls just below — which can all happen
@@ -6776,15 +6700,13 @@ function projectRun(inputs, ctx, randomize, shocks) {
           const idx = +key.slice(4);
           if (balBrokeragePies[idx] !== undefined) {
             if (taxCtx) {
-              const gainBase = taxCtx.stackBox.v + (taxCtx.gainBox ? taxCtx.gainBox.v : 0);
-              const desiredGross = solveGrossForNet(gainBase, remain, LTCG_BRACKETS_MFJ, inputs.idahoRate);
+              const desiredGross = solveGrossForNet(taxCtx.stackBox.v, remain, LTCG_BRACKETS_MFJ, inputs.idahoRate);
               const take = Math.min(desiredGross, Math.max(0, balBrokeragePies[idx]));
-              const taxAmt = taxOwedOnIncrement(gainBase, take, LTCG_BRACKETS_MFJ, inputs.idahoRate);
+              const taxAmt = taxOwedOnIncrement(taxCtx.stackBox.v, take, LTCG_BRACKETS_MFJ, inputs.idahoRate);
               const netTake = Math.min(remain, take - taxAmt);
               balBrokeragePies[idx] -= take; remain -= netTake; addDirectWithdrawal(key, take);
               const stateTaxAmt = inputs.idahoRate * take;
               stateTaxAnnual += stateTaxAmt; federalTaxAnnual += taxAmt - stateTaxAmt;
-              if (taxCtx.gainBox) taxCtx.gainBox.v += take;
               // LTCG-taxed pie draws don't add to the ordinary-income stack (a different income type for
               // bracket purposes) — matches takeFrom() below.
             } else {
@@ -6810,7 +6732,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       const t3 = Math.min(remaining, balHYSA); balHYSA -= t3; remaining -= t3;
       addDirectWithdrawal('hysa', t3);
       if (remaining > 0) {
-        if (remaining - sumPies(balBrokeragePies) > 0.01) markShortfall();
+        if (remaining - sumPies(balBrokeragePies) > 0.01) shortfallEver = true;
         addPooledWithdrawal(applyPooledDelta(balBrokeragePies, -remaining));
       }
     }
@@ -6832,9 +6754,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       ltcCostThisYear = inputs.ltcAnnualCost * medicalInflatorNow;
       if (age < inputs.retirementAge) {
         const fromRoth = Math.min(ltcCostThisYear, balRoth); balRoth -= fromRoth; addDirectWithdrawal('roth', fromRoth);
-        let ltcUnfunded = ltcCostThisYear - fromRoth;
-        if (ltcUnfunded > 0.01 && inputs.allowEmergencyFallback) ltcUnfunded = withdrawInOrder(ltcUnfunded, effectiveWithdrawalOrder.filter(k => k !== 'roth'));
-        if (ltcUnfunded > 0.01) markShortfall();
+        if (ltcCostThisYear - fromRoth > 0.01) shortfallEver = true;
       }
     }
 
@@ -6863,7 +6783,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
     });
     if (futureExpenseCostThisYear > 0 && age < inputs.retirementAge) {
       const feRemaining = withdrawInOrder(futureExpenseCostThisYear, effectiveWithdrawalOrder);
-      if (feRemaining > 0.01) markShortfall();
+      if (feRemaining > 0.01) shortfallEver = true;
     }
 
     // Windfalls: one-time inflows at a specific age, deposited into the chosen account.
@@ -6943,9 +6863,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
     // using whichever spouse's birthday actually governs that milestone — the spousal SS benefit follows the
     // spouse's own birth month, everything else follows the primary's.
     ssAmount = prorateFirstYear(age, inputs.ssAge, inputs.ssMonthly*12*ssInflator, inputs.birthMonth, inputs.currentAge);
-    spousalBenefit = inputs.spouseWorks
-      ? prorateFirstYear(age, inputs.spouseSSStartAge + ctx.ageGap, inputs.spouseSSMonthly*12*ssInflator, inputs.spouseBirthMonth, inputs.currentAge)
-      : prorateFirstYear(age, ctx.effectiveSpousalStartAge, inputs.ssMonthly*inputs.spousalPct*12*ssInflator, inputs.spouseBirthMonth, inputs.currentAge);
+    spousalBenefit = !inputs.spouseWorks ? prorateFirstYear(age, ctx.effectiveSpousalStartAge, inputs.ssMonthly*inputs.spousalPct*12*ssInflator, inputs.spouseBirthMonth, inputs.currentAge) : 0;
     // Real-world Social Security survivor rule, always on (independent of the separate Survivorship what-if
     // below, which stays opt-in only) — once you're past your own life expectancy, your spouse steps up
     // from the ~50% spousal benefit to your full benefit as a 100% survivor benefit. ssAmount itself doesn't
@@ -7002,13 +6920,11 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // Federal + Idaho income tax on working-years income, for the Taxes page's Estimated Taxes chart —
       // wages minus the pre-tax Traditional TSP contribution (Roth isn't pre-tax, so it stays in the taxable
       // base), plus any guaranteed income already flowing before retirementAge (a military pension or VA
-      // disability routinely starts mid-career), same 85%-taxable/tax-free treatment as the post-retirement
+      // disability routinely starts mid-career), same provisional-income SS treatment as the post-retirement
       // calc below. Purely informational for the chart — doesn't feed back into contributions or spending,
       // matching how FICA above is handled, so it can't disturb the rest of the projection.
-      const workingSsBenefits = ssAmount + spousalBenefit;
-      const workingOtherIncome = Math.max(0, income - tradContrib) + pensionAmount + pension2Amount + annuityAmount;
-      const taxableWorkingSs = taxableSocialSecurityMFJ(workingSsBenefits, workingOtherIncome);
-      const taxableWorkingYears = Math.max(0, workingOtherIncome + taxableWorkingSs - inputs.stdDeduction);
+      const otherTaxableWorkingYears = (income - tradContrib) + pensionAmount + pension2Amount + annuityAmount;
+      const taxableWorkingYears = Math.max(0, otherTaxableWorkingYears + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableWorkingYears) - inputs.stdDeduction);
       federalTaxAnnual += taxOwedFromBrackets(taxableWorkingYears, FEDERAL_BRACKETS_MFJ);
       stateTaxAnnual += taxableWorkingYears * inputs.idahoRate;
       fedMarginal = marginalRateFromBrackets(taxableWorkingYears, FEDERAL_BRACKETS_MFJ);
@@ -7042,8 +6958,12 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // debtPaymentThisYear, insurancePremiumAnnual) is unchanged — this is purely a scope change, not a
       // formula change.
       recurringLivingCostThisYear = (preRetireNonMedical * inflator + preRetireMedical * medicalInflator) + housingCost + debtPaymentThisYear + insurancePremiumAnnual;
-      const workingTaxesPaid = federalTaxAnnual + stateTaxAnnual + ficaTaxAnnual;
-      const excessIncomeAvailable = Math.max(0, income + guaranteedIncome - tradContrib - rothContrib - brokerageContribThisYear - recurringLivingCostThisYear - workingTaxesPaid);
+      // Working-year federal/state/FICA tax (federalTaxAnnual/stateTaxAnnual/ficaTaxAnnual, all already
+      // computed above for this year) now comes out before what's left counts as "excess" — previously
+      // this used gross pay, silently assuming the whole paycheck was available to contribute/spend/save
+      // with no tax bite taken out of it first, which overstated how much slack there actually was to
+      // sweep into Brokerage below.
+      const excessIncomeAvailable = Math.max(0, income + guaranteedIncome - tradContrib - rothContrib - brokerageContribThisYear - recurringLivingCostThisYear - federalTaxAnnual - stateTaxAnnual - ficaTaxAnnual);
       // Paid-off debt redirect: recurringLivingCostThisYear above already reflects a lower debtPaymentThisYear
       // once a debt (e.g. a car loan) is fully paid off, which is what makes excessIncomeAvailable bigger —
       // but by default that freed amount just blends into the general slack and only gets swept at whatever
@@ -7066,10 +6986,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
         return sum + Math.max(0, (+d.payment || 0) * 12 - (sched.paymentDuringYear[y] || 0));
       }, 0) : 0;
       const paidOffDebtRedirect = Math.min(paidOffDebtRedirectRaw, excessIncomeAvailable);
-      // Job Loss test: any surplus left over (typically guaranteed income like a pension/VA disability that
-      // keeps flowing and now exceeds Job Loss-level spending) stays as unswept slack rather than getting
-      // invested into a brokerage pie — "no longer contributing to TSP or brokerage accounts" means the whole
-      // paycheck-era contribution pipeline stops, not just the fixed-dollar/% pieces above.
+      // Job Loss test: any surplus left over (guaranteed income exceeds job-loss spending) gets swept
+      // into HYSA rather than a brokerage pie — you're no longer making paycheck-style contributions,
+      // but the pension/VA cash still needs somewhere to land. Pre-retirement surplus goes to HYSA;
+      // post-retirement this is irrelevant (jobLossActive = false at and after retirementAge).
       const jobLossSurplusToHYSA = jobLossActive ? excessIncomeAvailable : 0;
       excessIncomeSaved = jobLossActive ? 0 : (Math.max(0, excessIncomeAvailable - paidOffDebtRedirect) * (inputs.excessIncomeSavingsPct || 0) + paidOffDebtRedirect);
       // Job Loss test: pre-retirement years never had a withdrawal mechanism before this feature, because a
@@ -7079,9 +6999,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // then-Traditional order used everywhere else in this engine for an unplanned shortfall (LTC, future
       // expenses) — rather than pretending the bills simply don't get paid.
       if (jobLossActive) {
-        // Compare spending with after-tax resources. The previous gross-income comparison could show
-        // no gap even when pension taxes made the actual available cash insufficient.
-        const preRetireNeed = Math.max(0, recurringLivingCostThisYear + workingTaxesPaid - (income + guaranteedIncome));
+        const preRetireNeed = Math.max(0, recurringLivingCostThisYear + federalTaxAnnual + stateTaxAnnual + ficaTaxAnnual - (income + guaranteedIncome));
         if (preRetireNeed > 0.01) {
           let preRemaining = preRetireNeed;
           const j1 = Math.min(preRemaining, balHYSA); balHYSA -= j1; preRemaining -= j1;
@@ -7093,18 +7011,17 @@ function projectRun(inputs, ctx, randomize, shocks) {
             const fromPreBrokerage = Math.min(preRemaining, preBrokerageAvailable);
             addPooledWithdrawal(applyPooledDelta(balBrokeragePies, -fromPreBrokerage)); preRemaining -= fromPreBrokerage;
             if (preRemaining > 0) {
+              // Roth TSP contributions are penalty-free pre-59.5, so Roth is accessible even
+              // when job loss disqualifies Rule of 55. Only Traditional TSP draws are blocked
+              // (they'd trigger the 10% early-withdrawal penalty without Rule of 55).
               const fromPreRoth = Math.min(preRemaining, balRoth); balRoth -= fromPreRoth; preRemaining -= fromPreRoth;
               addDirectWithdrawal('roth', fromPreRoth);
-              // Skipped entirely (rather than just penalized) if this Job Loss year doesn't qualify for
-              // Rule of 55 and you're not 59.5 yet — see tradAvailableForJobLoss above.
-              if (preRemaining > 0 && tradAvailableForJobLoss) {
-                const fromPreTrad = Math.min(preRemaining, balTrad);
-                balTrad -= fromPreTrad;
-                preRemaining -= fromPreTrad;
+              if (preRemaining > 0 && tspAvailableForJobLoss) {
+                const fromPreTrad = Math.min(preRemaining, balTrad); balTrad -= fromPreTrad; preRemaining -= fromPreTrad;
                 addDirectWithdrawal('trad', fromPreTrad);
               }
             }
-            if (preRemaining > 0.01) markShortfall();
+            if (preRemaining > 0.01) shortfallEver = true;
           }
         }
       }
@@ -7112,8 +7029,8 @@ function projectRun(inputs, ctx, randomize, shocks) {
       contributions = tradContrib+rothContrib+matchContrib+brokerageContribThisYear+excessIncomeSaved;
       contribByAccount.trad = (contribByAccount.trad||0) + tradContrib + matchContrib;
       contribByAccount.roth = (contribByAccount.roth||0) + rothContrib;
-      balTrad = balTrad*Math.max(0, 1+preR-inputs.investmentFee) + tradContrib + matchContrib;
-      balRoth = balRoth*Math.max(0, 1+preR-inputs.investmentFee) + rothContrib;
+      balTrad = balTrad*(1+preR) + tradContrib + matchContrib;
+      balRoth = balRoth*(1+preR) + rothContrib;
       // Each pie grows independently and receives its own monthly contribution (annualized + grown with income).
       // Cash-like pies (e.g. a T-bills/SGOV bridge) grow at their own fixed rate instead of the market return —
       // they're meant to be de-risked ballast, not exposed to the same volatility as equity holdings.
@@ -7121,7 +7038,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         const pieContribThisYear = (+pieContribsMonthly[i] || 0) * 12 * Math.pow(1+inputs.incomeGrowth, y);
         const pieRate = (inputs.brokeragePieRiskTypes && inputs.brokeragePieRiskTypes[i] === 'cash')
           ? (inputs.brokeragePieCashRates ? inputs.brokeragePieCashRates[i] : 0.045) : preR;
-        balBrokeragePies[i] = balBrokeragePies[i]*Math.max(0, 1+pieRate-inputs.investmentFee) + pieContribThisYear;
+        balBrokeragePies[i] = balBrokeragePies[i]*(1+pieRate) + pieContribThisYear;
         contribByAccount['pie_'+i] = (contribByAccount['pie_'+i]||0) + pieContribThisYear;
       }
       // Excess income goes entirely into the single chosen pie (e.g. a cash-like SGOV pie), not spread across all pies.
@@ -7136,7 +7053,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // contribution, plus the taxable share of any guaranteed income already flowing), carried forward as
       // next year's IRMAA basis — see the post-retirement branch below for why a 1-year lookback is used
       // instead of computing IRMAA off the same year's own income.
-      magiHistory.push(Math.max(0, workingOtherIncome + taxableWorkingSs));
+      prevYearMagi = Math.max(0, otherTaxableWorkingYears + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableWorkingYears));
     } else {
       if (investableAtRetirement === null) {
         investableAtRetirement = startInvestable;
@@ -7168,13 +7085,20 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // edge case like being fully covered another way) — checked by default, so this normally has no effect.
       const medicalContinuesForSurvivor = !survivorshipActive || inputs.survivorMedicalContinues !== false;
       // IRMAA (Income-Related Monthly Adjustment Amount): a Medicare Part B surcharge above certain household
-      // MAGI thresholds. CMS uses a 2-year-old tax return; magiHistory supplies that full two-year lag.
-      // Brackets and surcharge amounts use the official 2026 CMS Married Filing Jointly table. Thresholds
-      // grow with General Inflation for later projection years; surcharge dollars grow with medical inflation.
-      // Applied per spouse who is actually on Medicare that year.
+      // MAGI thresholds. Real IRMAA uses a 2-year-old MAGI figure (this year's premium is set from tax return
+      // data from two years ago); this engine approximates that lag with a 1-year lookback instead (prevYearMagi,
+      // carried over from the end of the previous loop iteration — see below) both to avoid circularity (this
+      // year's own withdrawal amount isn't known until after the spending/withdrawal waterfall runs later on)
+      // and because a full 2-year rolling window isn't worth the added complexity for an estimate. Bracket
+      // thresholds and surcharge dollar amounts are both approximate, based on published 2025 CMS figures for
+      // Married Filing Jointly — not authoritative tax figures; verify against current IRS/CMS guidance as
+      // RMD/IRMAA-relevant ages actually approach. Thresholds grow with General Inflation (same simplification
+      // used for the Social Security wage base elsewhere); the surcharge itself is left in today's $ and rides
+      // along with medicalInflator below, same as the Part B premium fields it's added to. Applied per spouse
+      // who is actually on Medicare that year, since IRMAA is assessed per Medicare enrollee off the shared
+      // household MAGI.
       const irmaaThresholdInflator = Math.pow(1+inputs.inflation, y);
-      const irmaaLookbackMagi = magiHistory.length >= 2 ? magiHistory[magiHistory.length - 2] : 0;
-      const irmaaSurchargeMonthly = irmaaMonthlySurcharge(irmaaLookbackMagi, irmaaThresholdInflator);
+      const irmaaSurchargeMonthly = irmaaMonthlySurcharge(prevYearMagi, irmaaThresholdInflator);
       irmaaSurchargeMonthlyForRow = irmaaSurchargeMonthly;
       const medicarePremiumBase = !medicalContinuesForSurvivor ? 0 : (
         (onTricare ? inputs.tricareMonthly + inputs.tricareHearingMonthly + inputs.tricareVisionMonthly + inputs.tricareDentalMonthly : 0) +
@@ -7191,25 +7115,25 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // toggle) picks which Expenses-page column this year's baseline spending starts from, BEFORE any
       // guardrail cut runs. The Must Spend *floor* two lines below is intentionally left alone either
       // way — it's always the true essential-only total regardless of which basis is currently selected.
-      // Job Loss specifically only takes over from jobLossActive's age onward (see its definition above) —
-      // years before that still run on Like to Spend even with the toggle on, same as pre-retirement above.
+      // Job Loss spending only applies during the pre-retirement unemployment window (ages 53-54 in this plan).
+      // In retirement, spending always uses Like to Spend amounts — only the TSP access restriction persists.
+      // Job Loss spending only applies pre-retirement (unemployment period). Once retired, spending
+      // reverts to Like to Spend — the reduced job-loss column only models the involuntary gap before
+      // age 55, not a permanent retirement lifestyle cut. TSP access restrictions (tradAvailableForJobLoss)
+      // still apply through 59.5 regardless, since that's a legal Rule of 55 constraint, not a spending choice.
       const expensesNonMedicalForYear = survivorshipActive
-        ? (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendNonMedicalSurvivor : jobLossActive ? expTotalsThisYear.jobLossNonMedicalSurvivor : expTotalsThisYear.nonMedicalSurvivor)
-        : (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendNonMedical : jobLossActive ? expTotalsThisYear.jobLossNonMedical : expTotalsThisYear.nonMedical);
+        ? (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendNonMedicalSurvivor : expTotalsThisYear.nonMedicalSurvivor)
+        : (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendNonMedical : expTotalsThisYear.nonMedical);
       const expensesMedicalForYear = survivorshipActive
-        ? (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendMedicalSurvivor : jobLossActive ? expTotalsThisYear.jobLossMedicalSurvivor : expTotalsThisYear.medicalSurvivor)
-        : (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendMedical : jobLossActive ? expTotalsThisYear.jobLossMedical : expTotalsThisYear.medical);
-      const mustSpendNonMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendNonMedicalSurvivor : expTotalsThisYear.mustSpendNonMedical;
-      const mustSpendMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendMedicalSurvivor : expTotalsThisYear.mustSpendMedical;
-      const yearsIntoSpendingDecline = Math.max(0, age - inputs.spendingDeclineStartAge);
-      const spendingPhaseFactor = age < inputs.spendingDeclineStartAge ? 1
-        : Math.max(inputs.spendingFloorPct, Math.pow(1-inputs.spendingDeclineRate, yearsIntoSpendingDecline));
-      const phasedNonMedical = Math.max(mustSpendNonMedicalForYear * inflator, expensesNonMedicalForYear * inflator * spendingPhaseFactor);
-      expensesCategoriesAnnual = (phasedNonMedical + expensesMedicalForYear * medicalInflator) * spendMult;
+        ? (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendMedicalSurvivor : expTotalsThisYear.medicalSurvivor)
+        : (spendingBasis === 'mustspend' ? expTotalsThisYear.mustSpendMedical : expTotalsThisYear.medical);
+      expensesCategoriesAnnual = (expensesNonMedicalForYear * inflator + expensesMedicalForYear * medicalInflator) * spendMult;
       const expensesInflated = expensesCategoriesAnnual + medicalCostAnnual;
       // Must Spend floor for this year's recurring expenses only (housing/debt/insurance/Tricare-Medicare
       // premiums/SBP premiums don't have a discretionary counterpart modeled, so they're treated as 100%
       // essential below rather than needing their own Must Spend split).
+      const mustSpendNonMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendNonMedicalSurvivor : expTotalsThisYear.mustSpendNonMedical;
+      const mustSpendMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendMedicalSurvivor : expTotalsThisYear.mustSpendMedical;
       const mustSpendCategoriesAnnual = (mustSpendNonMedicalForYear * inflator + mustSpendMedicalForYear * medicalInflator) * spendMult;
       // SBP premiums (survivorship what-if only) are paid while both are alive in that scenario and stop once
       // survivorship kicks in (the retiree's own pay, which funded the premium, has stopped).
@@ -7230,11 +7154,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // each stream starts on its own eligibility age regardless of retirementAge.
 
       // Real federal marginal brackets (2026 MFJ) + Idaho's flat state rate.
-      // SS/spousal benefit treated as 85% taxable; VA disability and DIC excluded (tax-free); pensions/annuity/SBP fully taxable.
-      const retirementSsBenefits = ssAmount + spousalBenefit;
-      const retirementOtherIncome = pensionAmount + pension2Amount + annuityAmount + sbpAmount;
-      const taxableRetirementSs = taxableSocialSecurityMFJ(retirementSsBenefits, retirementOtherIncome);
-      const taxableGuaranteed = taxableRetirementSs + retirementOtherIncome;
+      // SS/spousal benefit taxed via the real IRS provisional-income method (taxableSocialSecurity above),
+      // not a flat 85% assumption; VA disability and DIC excluded (tax-free); pensions/annuity/SBP fully taxable.
+      const otherTaxableGuaranteed = pensionAmount + pension2Amount + annuityAmount + sbpAmount;
+      const taxableGuaranteed = otherTaxableGuaranteed + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableGuaranteed);
       const taxableBeforeWithdrawal = Math.max(0, taxableGuaranteed - inputs.stdDeduction);
       // Guaranteed income doesn't arrive tax-free — actual federal + Idaho tax owed on it (progressive, using the
       // standard deduction) is deducted before comparing it against spending, instead of treating it at face value.
@@ -7276,7 +7199,6 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // Expenses, RMD, a Roth conversion, and the main spending gap) each see accurate brackets instead
       // of every one of them independently assuming it's the only draw competing for the lower brackets.
       let ordinaryIncomeStack = taxableBeforeWithdrawal;
-      let capitalGainsTaken = 0;
 
       // Long-Term Care and Future Expenses (both computed unconditionally, earlier in this loop iteration,
       // before this retirement-age branch split) get first claim on this year's guaranteed-income surplus —
@@ -7301,24 +7223,16 @@ function projectRun(inputs, ctx, randomize, shocks) {
         guaranteedIncomeSurplus -= ltcFromSurplus;
         const ltcRemainingAfterSurplus = ltcCostThisYear - ltcFromSurplus;
         const fromRoth = Math.min(ltcRemainingAfterSurplus, balRoth); balRoth -= fromRoth; addDirectWithdrawal('roth', fromRoth);
-        let ltcUnfunded = ltcRemainingAfterSurplus - fromRoth;
-        if (ltcUnfunded > 0.01 && inputs.allowEmergencyFallback) {
-          const ltcTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack }, gainBox: { v: capitalGainsTaken } };
-          ltcUnfunded = withdrawInOrder(ltcUnfunded, effectiveWithdrawalOrder.filter(k => k !== 'roth'), ltcTaxCtx);
-          ordinaryIncomeStack = ltcTaxCtx.stackBox.v;
-          capitalGainsTaken = ltcTaxCtx.gainBox.v;
-        }
-        if (ltcUnfunded > 0.01) markShortfall();
+        if (ltcRemainingAfterSurplus - fromRoth > 0.01) shortfallEver = true;
       }
       if (futureExpenseCostThisYear > 0) {
         const feFromSurplus = Math.min(futureExpenseCostThisYear, guaranteedIncomeSurplus);
         guaranteedIncomeSurplus -= feFromSurplus;
         const feRemainingAfterSurplus = futureExpenseCostThisYear - feFromSurplus;
-        const feTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack }, gainBox: { v: capitalGainsTaken } };
+        const feTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack } };
         const feRemaining = withdrawInOrder(feRemainingAfterSurplus, effectiveWithdrawalOrder, feTaxCtx);
         ordinaryIncomeStack = feTaxCtx.stackBox.v;
-        capitalGainsTaken = feTaxCtx.gainBox.v;
-        if (feRemaining > 0.01) markShortfall();
+        if (feRemaining > 0.01) shortfallEver = true;
       }
 
       // Same cash-vs-equity split applies post-retirement: a cash-like pie keeps growing at its own fixed
@@ -7326,9 +7240,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
       let brokPiesGrown = balBrokeragePies.map((b, i) => {
         const pieRate = (inputs.brokeragePieRiskTypes && inputs.brokeragePieRiskTypes[i] === 'cash')
           ? (inputs.brokeragePieCashRates ? inputs.brokeragePieCashRates[i] : 0.045) : postR;
-        return b*Math.max(0, 1+pieRate-inputs.investmentFee);
+        return b*(1+pieRate);
       });
-      let tradGrown = balTrad*Math.max(0, 1+postR-inputs.investmentFee), rothGrown = balRoth*Math.max(0, 1+postR-inputs.investmentFee);
+      let tradGrown = balTrad*(1+postR), rothGrown = balRoth*(1+postR);
       // HYSA now participates in the withdrawal pool, so it's grown here (before withdrawal) instead of the blanket line below.
       let hysaGrown = balHYSA*(1+inputs.hysaRate);
       let remaining = need;
@@ -7352,10 +7266,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
           withdrawalByAccount[key] = (withdrawalByAccount[key] || 0) + netTaken;
           return;
         }
-        const taxBase = key === 'trad' ? ordinaryIncomeStack : ordinaryIncomeStack + capitalGainsTaken;
-        const desiredGross = solveGrossForNet(taxBase, desiredNet, info.brackets, info.flatAdd);
+        const desiredGross = solveGrossForNet(ordinaryIncomeStack, desiredNet, info.brackets, info.flatAdd);
         const grossTaken = Math.min(desiredGross, Math.max(0, bal[key]));
-        const taxAmt = taxOwedOnIncrement(taxBase, grossTaken, info.brackets, info.flatAdd);
+        const taxAmt = taxOwedOnIncrement(ordinaryIncomeStack, grossTaken, info.brackets, info.flatAdd);
         const netTaken = Math.min(desiredNet, grossTaken - taxAmt);
         bal[key] -= grossTaken;
         remaining -= netTaken;
@@ -7364,7 +7277,6 @@ function projectRun(inputs, ctx, randomize, shocks) {
         // Traditional TSP draws stack onto ordinary income for bracket purposes; LTCG-taxed pie draws
         // read the same stack to find their bracket but don't add to it (different income type).
         if (key === 'trad') ordinaryIncomeStack += grossTaken;
-        else capitalGainsTaken += grossTaken;
         // Split this withdrawal's tax back into Federal vs Idaho-state shares for the Taxes page's
         // Estimated Taxes chart — Idaho's flat rate on the gross is always the state slice; whatever's
         // left (bracket-blended federal + early-withdrawal penalty for Traditional TSP, or the federal
@@ -7384,7 +7296,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // covering spending is swept into Brokerage (the same destination pie excess income savings uses)
       // instead of just sitting there or vanishing from the projection.
       if (inputs.rmdAge && age >= inputs.rmdAge && balTrad > 0.01) {
-        const rmdRequiredGross = Math.min(bal.trad, acctBegin.trad / rmdDivisor(age));
+        const rmdRequiredGross = Math.min(bal.trad, balTrad / rmdDivisor(age));
         // RMD age is always well past 59.5, so no early-withdrawal penalty applies — bracket-blended
         // federal tax (stacked on the running ordinaryIncomeStack) + Idaho's flat rate.
         const rmdTaxAmt = taxOwedOnIncrement(ordinaryIncomeStack, rmdRequiredGross, FEDERAL_BRACKETS_MFJ, inputs.idahoRate);
@@ -7498,18 +7410,22 @@ function projectRun(inputs, ctx, randomize, shocks) {
       }
 
       withdrawal = need - remaining;
-      if (remaining > 1) markShortfall();
+      if (remaining > 1) shortfallEver = true;
 
       balTrad = Math.max(0, bal.trad); balRoth = Math.max(0, bal.roth); balHYSA = Math.max(0, bal.hysa);
       balBrokeragePies = balBrokeragePies.map((_, i) => Math.max(0, bal['pie_'+i]));
       balChecking *= (1+inputs.cashRate); balSavings *= (1+inputs.cashRate);
 
       // IRMAA lookback proxy (see the comment above medicarePremiumBase): carry this year's approximate MAGI
-      // — taxable guaranteed income plus this year's actual gross Traditional TSP withdrawal, which now
-      // includes any RMD forced out above — forward as the basis for next year's IRMAA tier.
-      const taxableBrokerageWithdrawals = Object.entries(withdrawalByAccount)
-        .filter(([key]) => key.startsWith('pie_')).reduce((sum, [, amount]) => sum + (amount || 0), 0);
-      magiHistory.push(Math.max(0, taxableGuaranteed + (withdrawalByAccount.trad || 0) + rothConversionAmount + taxableBrokerageWithdrawals));
+      // — taxable guaranteed income, this year's actual gross Traditional TSP withdrawal (which now
+      // includes any RMD forced out above), any Roth conversion amount (ordinary income in the year it
+      // happens, same as a Trad withdrawal — MAGI doesn't distinguish why money left Traditional TSP),
+      // and brokerage-pie withdrawals (already taxed as a full LTCG-rate gain elsewhere in this engine,
+      // since cost basis isn't tracked — treated the same way here for consistency, rather than counting
+      // it as taxable for the withdrawal's own tax bill but invisible to MAGI/IRMAA) — forward as the
+      // basis for next year's IRMAA tier.
+      const brokerageWithdrawalTotal = balBrokeragePies.reduce((s, _, i) => s + (withdrawalByAccount['pie_'+i] || 0), 0);
+      prevYearMagi = Math.max(0, taxableGuaranteed + (withdrawalByAccount.trad || 0) + rothConversionAmount + brokerageWithdrawalTotal);
 
       const endInvestable = balTrad + balRoth + sumPies(balBrokeragePies);
       if (endInvestable <= 0 && depletionAge === null && startInvestable > 0) depletionAge = age;
@@ -7518,9 +7434,6 @@ function projectRun(inputs, ctx, randomize, shocks) {
     const investable = balTrad + balRoth + sumPies(balBrokeragePies);
     const cash = balChecking + balSavings + balHYSA;
     const netWorth = investable + cash + homeEquityThisYear - debtBalanceThisYear;
-    endingInvestable = investable;
-    endingCash = cash;
-    endingNetWorth = netWorth;
 
     if (!randomize) {
       // Savings page: the Trad side of a Roth conversion is folded into a COPY of withdrawalByAccount
@@ -7552,7 +7465,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
     cashAtRetirement = balChecking + balSavings + balHYSA;
   }
 
-  return { rows, investableAtRetirement, cashAtRetirement, depletionAge, firstShortfallAge, success: !shortfallEver, endingInvestable, endingCash, endingNetWorth, initialWithdrawalRate, totalRothConverted, totalRothConversionTax };
+  return { rows, investableAtRetirement, cashAtRetirement, depletionAge, success: !shortfallEver, initialWithdrawalRate, totalRothConverted, totalRothConversionTax };
 }
 
 // Whether a single recurring expense row counts as "active" in a given projection year (age) — both
@@ -7689,79 +7602,6 @@ function runMonteCarlo(inputs, ctx, N, shocks) {
   return successes / N * 100;
 }
 
-function runMonteCarloDetailed(inputs, ctx, N, shocks) {
-  const seedInputs = { ...inputs };
-  delete seedInputs.withdrawalOrder;
-  delete seedInputs.allowEmergencyFallback;
-  const seedSource = JSON.stringify(seedInputs) + JSON.stringify(shocks||{}) + JSON.stringify(expenses) + JSON.stringify(debts)
-    + JSON.stringify(futureExpenses) + JSON.stringify(windfalls) + JSON.stringify(insurancePolicies) + JSON.stringify(brokeragePies) + '|' + N;
-  mcRandom = mulberry32(hashStringToSeed(seedSource));
-  let successes = 0;
-  let depletionFailures = 0, recoveredFailures = 0, negativeEndingRuns = 0;
-  const endingNetWorths = [];
-  const failureAges = [];
-  for (let i = 0; i < N; i++) {
-    const result = projectRun(inputs, ctx, true, shocks);
-    if (result.success) successes++;
-    else {
-      if (result.firstShortfallAge != null) failureAges.push(result.firstShortfallAge);
-      if (result.depletionAge != null) depletionFailures++;
-      if (result.endingNetWorth > 0) recoveredFailures++;
-    }
-    if (result.endingNetWorth < 0) negativeEndingRuns++;
-    endingNetWorths.push(result.endingNetWorth);
-  }
-  endingNetWorths.sort((a,b) => a-b);
-  failureAges.sort((a,b) => a-b);
-  const percentile = (arr, p) => {
-    if (!arr.length) return null;
-    const idx = (arr.length - 1) * p;
-    const lo = Math.floor(idx), hi = Math.ceil(idx);
-    return lo === hi ? arr[lo] : arr[lo] + (arr[hi] - arr[lo]) * (idx - lo);
-  };
-  return {
-    score: successes / N * 100,
-    successes,
-    failures: N - successes,
-    depletionFailures,
-    recoveredFailures,
-    negativeEndingRuns,
-    medianEndingNetWorth: percentile(endingNetWorths, 0.5),
-    p10EndingNetWorth: percentile(endingNetWorths, 0.10),
-    earliestFailureAge: failureAges.length ? failureAges[0] : null,
-    medianFailureAge: percentile(failureAges, 0.5)
-  };
-}
-
-function renderPlanDataWarnings(inputs, ctx) {
-  const host = els('dataQualityWarnings');
-  if (!host) return;
-  const warnings = [];
-  const escWarn = value => String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  if (inputs.investmentFee <= 0) warnings.push('Investment fees are set to 0%. Enter the weighted expense ratio or advisory fee for a more conservative projection.');
-  if (inputs.preReturn >= 0.08 || inputs.postReturn >= 0.08) warnings.push('A market return assumption is 8% or higher. Confirm that it is nominal, diversified, and before fees.');
-  if (inputs.spendingDeclineRate > 0.03) warnings.push('The retirement spending decline exceeds 3% per year; verify that this does not understate later-life lifestyle costs.');
-  if (inputs.spendingFloorPct < 0.60) warnings.push('The lifestyle spending floor is below 60% of the starting level.');
-  const excludedWithMoney = getWithdrawalAccountKeys().filter(k => !inputs.withdrawalOrder.includes(k)).map(k => withdrawalAccountInfo(k)).filter(a => a && a.balance > 0);
-  if (excludedWithMoney.length) warnings.push(`Normal withdrawals exclude ${excludedWithMoney.map(a => a.label).join(', ')} even though those accounts hold money. Compare the All-assets emergency score.`);
-  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-  const expenseNames = new Map(expenses.map(e => [norm(e.name), e.name]).filter(([n]) => n));
-  [...debts, ...insurancePolicies].forEach(item => {
-    const n = norm(item.name);
-    if (n && expenseNames.has(n)) warnings.push(`Possible double count: "${item.name}" appears both as a recurring expense and in Debt/Insurance.`);
-  });
-  if (expenses.some(e => /\b(rent|mortgage)\b/i.test(e.name||'')) && inputs.rentMonthly > 0) warnings.push('A recurring expense name contains Rent or Mortgage while Housing also supplies a housing cost.');
-  if (expenses.some(e => /\b(insurance|tricare|medicare|part b)\b/i.test(e.name||'')) && (inputs.insurancePremiumMonthly > 0 || inputs.tricareMonthly > 0)) warnings.push('A recurring expense may duplicate an Insurance or Medical-page premium.');
-  const neverPayoff = (ctx.debtSchedules || []).map((s,i) => s.neverPaysOff ? debts[i].name : null).filter(Boolean);
-  if (neverPayoff.length) warnings.push(`Debt payment may be too low to amortize: ${neverPayoff.join(', ')}.`);
-  if (brokeragePies.some(p => (p.riskType||'equity') !== 'cash')) warnings.push('Brokerage cost basis is not collected, so taxable brokerage withdrawals are conservatively treated as entirely taxable gains.');
-  const apiKeyEl = els('anthropicApiKey');
-  if (apiKeyEl && apiKeyEl.value.trim()) warnings.push('An API key is stored in the planner. It will be removed from the audited backup, but keeping secrets in browser storage is not recommended.');
-  host.innerHTML = warnings.length
-    ? `<ul style="margin:0;padding-left:22px;line-height:1.65;">${warnings.map(w => `<li>${escWarn(w)}</li>`).join('')}</ul>`
-    : '<div style="color:var(--good);font-weight:700;">No material data-quality warnings detected.</div>';
-}
-
 // ---------- Historical Sequence-of-Returns Backtest ----------
 // Real S&P 500 total-return-by-year (price return + reinvested dividends), 1928-2025, sourced from
 // Slickcharts (which compiles from the index provider) — used to replay your ACTUAL plan against every
@@ -7831,40 +7671,147 @@ function runHistoricalBacktest(inputs, ctx) {
   return { results, successRate: results.length ? (successCount / results.length * 100) : null };
 }
 
-// Historically calibrated Monte Carlo. Each simulation stitches together randomly selected
-// five-year blocks of actual S&P 500 annual returns. This preserves real multi-year market behavior
-// and sequence risk instead of treating every annual return as an unrelated normal draw. It also
-// permits every account as an emergency source, matching the broad access in the comparison plan.
-function runHistoricalBootstrapDetailed(inputs, ctx, N, blockYears) {
-  blockYears = blockYears || 5;
-  const comparableInputs = {
-    ...inputs,
-    withdrawalOrder: getWithdrawalAccountKeys(),
-    allowEmergencyFallback: true
-  };
-  const seedSource = 'historical-bootstrap|' + JSON.stringify(comparableInputs) + JSON.stringify(expenses)
-    + JSON.stringify(debts) + JSON.stringify(futureExpenses) + JSON.stringify(windfalls)
-    + JSON.stringify(insurancePolicies) + JSON.stringify(brokeragePies) + '|' + N + '|' + blockYears;
+// ---------- Monte Carlo Failure Diagnostics ----------
+// Enhanced MC run that tracks depletion ages and classifies failures as early
+// (sequence-of-returns risk: first ~15 retirement years) vs late (longevity/inflation risk).
+function runMonteCarloWithDiagnostics(inputs, ctx, N, shocks) {
+  const seedSource = JSON.stringify(inputs) + JSON.stringify(shocks||{}) + JSON.stringify(expenses) + JSON.stringify(debts)
+    + JSON.stringify(futureExpenses) + JSON.stringify(windfalls) + JSON.stringify(insurancePolicies) + JSON.stringify(brokeragePies) + '|diag';
   mcRandom = mulberry32(hashStringToSeed(seedSource));
   let successes = 0;
-  const series = HISTORICAL_YEARS.map(y => HISTORICAL_SP500_RETURNS[y]);
-  const maxBlockStart = Math.max(0, series.length - blockYears);
+  const failureAges = [];
   for (let i = 0; i < N; i++) {
-    const path = [];
-    while (path.length <= ctx.maxYears) {
-      const start = Math.floor(mcRandom() * (maxBlockStart + 1));
-      for (let b = 0; b < blockYears && path.length <= ctx.maxYears; b++) path.push(series[start + b]);
-    }
-    const shocks = { pre: {}, post: {} };
-    path.forEach((ret, y) => {
-      const age = inputs.currentAge + y;
-      if (age < inputs.retirementAge) shocks.pre[y] = ret;
-      else shocks.post[age - inputs.retirementAge] = ret;
-    });
-    if (projectRun(comparableInputs, ctx, false, shocks).success) successes++;
+    const res = projectRun(inputs, ctx, true, shocks);
+    if (res.success) { successes++; }
+    else { failureAges.push(res.depletionAge != null ? res.depletionAge : inputs.retirementAge + 3); }
   }
-  return { score: successes / N * 100, successes, failures: N - successes };
+  const earlyThreshold = inputs.retirementAge + 15;
+  const earlyFailures = failureAges.filter(a => a <= earlyThreshold).length;
+  const lateFailures  = failureAges.filter(a => a >  earlyThreshold).length;
+  const sorted = [...failureAges].sort((a,b) => a-b);
+  const medianDepletionAge = sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
+  return { successRate: successes / N * 100, failureCount: N - successes,
+           earlyFailures, lateFailures, medianDepletionAge };
 }
+
+function renderMCDiagnostics(inputs, ctx, baseScore) {
+  const el = els('mcDiagnosticsCard');
+  if (!el) return;
+  const diag = runMonteCarloWithDiagnostics(inputs, ctx, 1000);
+  // Run guardrail comparison only when guardrails are currently OFF
+  let guardrailScore = null;
+  if (!inputs.guardrailsEnabled) {
+    const gInputs = { ...inputs, guardrailsEnabled: true,
+      guardBand: inputs.guardBand || 0.20, guardAdj: inputs.guardAdj || 0.10 };
+    guardrailScore = runMonteCarlo(gInputs, ctx, 1000);
+  }
+  const retAge = inputs.retirementAge;
+  const earlyThreshold = retAge + 15;
+  const noFailures = diag.failureCount === 0;
+  const scoreColor = s => s >= 70 ? 'var(--good)' : s >= 40 ? 'var(--orange)' : 'var(--danger)';
+  let body;
+  if (noFailures) {
+    body = `<p style="color:var(--good);font-size:16.5px;margin:0 0 10px;">✓ All 1,000 simulations succeeded — your plan is robust across randomized market sequences.</p>`;
+  } else {
+    const dominantRisk = diag.earlyFailures >= diag.lateFailures
+      ? `⚠️ Most failures are <b>early</b> (before age ${earlyThreshold}) — sequence-of-returns risk is your primary threat. A bad market in the first years of retirement hits hardest.`
+      : `Most failures are <b>late</b> (after age ${earlyThreshold}) — your plan handles early volatility but faces longevity and inflation risk in later decades.`;
+    body = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;">
+        <div style="text-align:center;background:var(--surface2);border-radius:8px;padding:11px 8px;">
+          <div style="font-size:24px;font-weight:700;color:${scoreColor(diag.successRate)};">${Math.round(diag.successRate)}%</div>
+          <div style="font-size:13px;color:var(--muted);">Confidence</div>
+        </div>
+        <div style="text-align:center;background:var(--surface2);border-radius:8px;padding:11px 8px;">
+          <div style="font-size:24px;font-weight:700;color:var(--danger);">${diag.earlyFailures}</div>
+          <div style="font-size:13px;color:var(--muted);">Early failures</div>
+          <div style="font-size:11.5px;color:var(--muted);">before age ${earlyThreshold}</div>
+        </div>
+        <div style="text-align:center;background:var(--surface2);border-radius:8px;padding:11px 8px;">
+          <div style="font-size:24px;font-weight:700;color:var(--orange);">${diag.lateFailures}</div>
+          <div style="font-size:13px;color:var(--muted);">Late failures</div>
+          <div style="font-size:11.5px;color:var(--muted);">after age ${earlyThreshold}</div>
+        </div>
+        ${diag.medianDepletionAge != null ? `<div style="text-align:center;background:var(--surface2);border-radius:8px;padding:11px 8px;">
+          <div style="font-size:24px;font-weight:700;">${diag.medianDepletionAge}</div>
+          <div style="font-size:13px;color:var(--muted);">Median depletion age</div>
+        </div>` : ''}
+      </div>
+      <p style="font-size:14.5px;color:var(--muted);margin:0 0 10px;">${dominantRisk}</p>`;
+  }
+  const guardrailRow = guardrailScore !== null
+    ? `<div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="font-size:15px;">🛡️ <b>With dynamic guardrails:</b> confidence <b style="color:${scoreColor(guardrailScore)};">${Math.round(guardrailScore)}%</b></div>
+        <div style="font-size:13px;color:var(--muted);">Guardrails auto-trim spending in bad years. Enable in <b>Assumptions → Monte Carlo &amp; Guardrails</b>.</div>
+      </div>`
+    : inputs.guardrailsEnabled
+      ? `<div style="font-size:14px;color:var(--muted);margin-top:8px;">✓ Dynamic guardrails are enabled and baked into this score.</div>`
+      : '';
+  el.innerHTML = `<div class="card no-autocollapse" style="border-left:4px solid var(--primary);">
+    <h3 onclick="toggleCard(this)">Monte Carlo Diagnostics</h3>
+    ${body}
+    ${guardrailRow}
+  </div>`;
+}
+
+// ---------- Historical Crisis Stress Test ----------
+const CRISIS_PERIODS = [
+  { name: 'Great Depression',       year: 1929, desc: '−47% year 1; multi-year deflation' },
+  { name: '1966 Stagflation Era',   year: 1966, desc: 'Decade of flat returns + high inflation' },
+  { name: 'Dot-com Crash',          year: 2000, desc: '3 consecutive years of losses' },
+  { name: '2008 Financial Crisis',  year: 2007, desc: '−37% in 2008; housing collapse' },
+  { name: '2022 Selloff',           year: 2022, desc: 'Stocks & bonds fell simultaneously' },
+];
+
+function renderCrisisStressTest(inputs, ctx) {
+  const el = els('crisisStressCard');
+  if (!el) return;
+  const results = CRISIS_PERIODS.map(crisis => {
+    const shocks = buildHistoricalShocks(inputs, ctx, crisis.year);
+    if (!shocks) return { ...crisis, available: false };
+    const det = projectRun(inputs, ctx, false, shocks);
+    const lastRow = det.rows.length ? det.rows[det.rows.length - 1] : null;
+    return { ...crisis, available: true, success: det.success,
+             endingBalance: lastRow ? lastRow.investable : 0, depletionAge: det.depletionAge };
+  });
+  const avail   = results.filter(r => r.available);
+  const survived = avail.filter(r => r.success).length;
+  const rows = results.map(r => !r.available
+    ? `<tr style="border-bottom:1px solid var(--border);opacity:0.45;">
+        <td style="padding:7px 10px;font-weight:600;">${r.name}</td>
+        <td style="padding:7px 10px;color:var(--muted);font-size:13px;">${r.desc}</td>
+        <td colspan="3" style="padding:7px 10px;text-align:center;color:var(--muted);">Insufficient history for plan horizon</td>
+      </tr>`
+    : `<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:7px 10px;font-weight:600;">${r.name} (${r.year})</td>
+        <td style="padding:7px 10px;color:var(--muted);font-size:13px;">${r.desc}</td>
+        <td style="padding:7px 10px;text-align:center;font-weight:700;color:${r.success ? 'var(--good)' : 'var(--danger)'};">${r.success ? '✓ Survives' : '✗ Fails'}</td>
+        <td style="padding:7px 10px;text-align:right;">${r.success ? fmtMoneyK(dv(r.endingBalance, inputs.lifeExpectancy, inputs)) : '—'}</td>
+        <td style="padding:7px 10px;text-align:center;">${r.depletionAge ? r.depletionAge : (r.success ? '—' : 'Pre-retirement')}</td>
+      </tr>`
+  ).join('');
+  const headline = avail.length
+    ? `Your plan survives <b>${survived} of ${avail.length}</b> tested crisis sequences.`
+    : 'Your plan horizon extends beyond the available historical data.';
+  el.innerHTML = `<div class="card no-autocollapse" style="border-left:4px solid #5a4fcf;">
+    <h3 onclick="toggleCard(this)">Historical Crisis Stress Test</h3>
+    <p style="font-size:15px;color:var(--muted);margin:0 0 14px;">Your plan replayed using real S&amp;P 500 returns starting in five named crises. ${headline}</p>
+    <div class="table-scroll">
+    <table style="width:100%;border-collapse:collapse;font-size:15px;">
+      <thead><tr style="border-bottom:2px solid var(--border);text-align:left;">
+        <th style="padding:6px 10px;">Crisis</th>
+        <th style="padding:6px 10px;">Context</th>
+        <th style="padding:6px 10px;text-align:center;">Result</th>
+        <th style="padding:6px 10px;text-align:right;">Ending Balance</th>
+        <th style="padding:6px 10px;text-align:center;">Depletes at Age</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin:10px 0 0;">Returns use actual S&amp;P 500 data; inflation stays at your assumed rate. Full 1928–2025 replay is in the Explorers tab.</p>
+  </div>`;
+}
+
 function renderHistoricalBacktest(inputs, ctx) {
   const backtest = runHistoricalBacktest(inputs, ctx);
   const headlineEl = els('historicalBacktestHeadline');
@@ -10366,11 +10313,7 @@ async function sendVaultChatMessage() {
 // ---------- Settings: backup / restore / reset ----------
 function downloadBackup() {
   const state = saveState();
-  // Never export a secret into a portable JSON file. Keep the key in this browser's local state,
-  // but remove it from the downloadable copy before serialization.
-  const exportState = JSON.parse(JSON.stringify(state));
-  if (exportState.fields) delete exportState.fields.anthropicApiKey;
-  const blob = new Blob([JSON.stringify(exportState, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -10390,16 +10333,24 @@ function restoreFromFile(file) {
     try {
       const state = JSON.parse(e.target.result);
       applyState(state);
-      // Notes are the one field applyState() deliberately doesn't touch (see the comment there) — an
-      // explicit restore is the one legitimate case where the backup's notes SHOULD overwrite whatever
-      // is currently in this browser, so it's synced here instead, routed through updateSharedNotes()
-      // so it also writes through to the dedicated SHARED_NOTES_KEY, not just the in-memory copy.
+      // Notes, the Checkpoint Tracker, and Accounts & Cards data are the fields applyState() deliberately
+      // doesn't touch on a normal boot (see the comment there) — an explicit restore is the one
+      // legitimate case where the backup's copy SHOULD overwrite whatever is currently in this browser,
+      // so they're synced here instead.
       if (typeof state.sharedNotesText === 'string') updateSharedNotes(state.sharedNotesText);
+      if (state.checkpointBaseline !== undefined) { checkpointBaseline = state.checkpointBaseline; persistCheckpointBaseline(); }
+      if (Array.isArray(state.checkpointHistory)) { checkpointHistory = state.checkpointHistory; persistCheckpointHistory(); }
+      // Writes straight to the Accounts & Cards register's own localStorage keys — if that page's tracker
+      // hasn't loaded yet this session, it'll pick up the restored data the first time it's visited, same
+      // as any fresh page load. If it was already open before this restore, a page refresh is needed for
+      // it to pick up the change (its shadow-DOM tracker can only be attached once per page load).
+      let restoredTrackerData = false;
+      if (state.accountsCardsBackup) { restoreAccountsCardsBackup(state.accountsCardsBackup); restoredTrackerData = true; }
       renderExpenseRows(); renderBrokeragePieRows(); renderPieContributionRows(); renderDebtRows();
       renderFutureExpenseRows(); renderWindfallRows(); renderInsuranceRows();
       saveState();
       render();
-      alert('Backup restored.');
+      alert('Backup restored.' + (restoredTrackerData && trackerFrameLoaded ? ' Refresh the page to see restored Accounts & Cards data.' : ''));
     } catch (err) {
       alert('Could not read that file — is it a backup exported from this tool?');
     }
@@ -10756,7 +10707,6 @@ function renderRothConversionComparison(inputs, ctx) {
 
 function render() {
   els('spousalBenefitFields').style.display = els('spouseWorks').checked ? 'none' : 'grid';
-  els('spouseOwnBenefitFields').style.display = els('spouseWorks').checked ? 'grid' : 'none';
   els('buyHomeFields').style.display = els('buyHome').checked ? 'block' : 'none';
   els('ltcFields').style.display = els('ltcEnabled').checked ? 'block' : 'none';
   els('pill55').classList.toggle('active', +els('retirementAge').value === 55);
@@ -10795,31 +10745,18 @@ function render() {
   renderWithdrawalOrderRows();
   renderWithdrawalOrderOptimizer(inputs);
   renderCombinedExpensesCard(rows, inputs);
-  renderPlanDataWarnings(inputs, ctx);
 
   const totalCurrentAssets = inputs.tradTSPBalance + inputs.rothTSPBalance + inputs.brokerageBalance
     + inputs.checkingBalance + inputs.savingsBalance + inputs.hysaBalance;
   if (els('totalAssetsTile')) els('totalAssetsTile').textContent = fmtMoney(totalCurrentAssets);
   renderCheckpointTracker(inputs, rows);
   renderInheritedAccountBreakdown(inputs, rows);
-  // Future-dated loans belong in their scheduled projection years; they are not debts today.
-  const currentDebtBalance = debts.reduce((s,d) => {
-    const startsNow = d.startAge == null || d.startAge === '' || (+d.startAge <= inputs.currentAge);
-    return s + (startsNow ? (+d.balance || 0) : 0);
-  }, 0);
-  const netWorthToday = totalCurrentAssets - currentDebtBalance;
+  const netWorthToday = totalCurrentAssets - debts.reduce((s,d) => s + (+d.balance||0), 0);
   const rowAtRetirement = rows.find(r => r.age === retirementAge);
   const netWorthAtRetirement = rowAtRetirement ? rowAtRetirement.netWorth : (rows.length ? rows[rows.length-1].netWorth : netWorthToday);
 
   // Monte Carlo score
-  const mcDetails = runMonteCarloDetailed(inputs, ctx, 1000);
-  const score = mcDetails.score;
-  const allAssetsDetails = runMonteCarloDetailed({
-    ...inputs,
-    withdrawalOrder: getWithdrawalAccountKeys(),
-    allowEmergencyFallback: true
-  }, ctx, 1000);
-  const historicalDetails = runHistoricalBootstrapDetailed(inputs, ctx, 1000, 5);
+  const score = runMonteCarlo(inputs, ctx, 1000);
 
   // Mini Monte Carlo scores for all three spending bases (Job Loss / Must Spend / Like to Spend), shown
   // right in the header toggle so you can compare all three at a glance without switching the active one.
@@ -10872,28 +10809,7 @@ function render() {
   else if (score >= 60) { ringColor = '#3f9c7c'; label = 'Good'; }
   else if (score >= 40) { ringColor = '#c07a1f'; label = 'Uncertain'; }
   ring.style.background = ringColor;
-  if (els('mcSuccessCount')) els('mcSuccessCount').textContent = `${mcDetails.successes.toLocaleString()} of 1,000`;
-  if (els('mcMedianEnding')) els('mcMedianEnding').textContent = fmtMoneyK(dv(mcDetails.medianEndingNetWorth, lifeExpectancy, inputs));
-  if (els('mcP10Ending')) els('mcP10Ending').textContent = fmtMoneyK(dv(mcDetails.p10EndingNetWorth, lifeExpectancy, inputs));
-  if (els('mcFailureCount')) {
-    els('mcFailureCount').textContent = mcDetails.failures.toLocaleString();
-    els('mcFailureCount').parentElement.className = 'stat ' + (mcDetails.failures ? 'warn' : 'ok');
-  }
-  if (els('mcFailureAges')) els('mcFailureAges').textContent = mcDetails.failures
-    ? `Earliest ${mcDetails.earliestFailureAge}; median ${Math.round(mcDetails.medianFailureAge)}`
-    : 'No failures';
-  if (els('mcDepletionFailures')) els('mcDepletionFailures').textContent = mcDetails.depletionFailures.toLocaleString();
-  if (els('mcRecoveredFailures')) els('mcRecoveredFailures').textContent = mcDetails.recoveredFailures.toLocaleString();
-  if (els('mcNegativeEnding')) els('mcNegativeEnding').textContent = mcDetails.negativeEndingRuns.toLocaleString();
-  if (els('mcAllAssetsScore')) {
-    els('mcAllAssetsScore').textContent = `${Math.round(allAssetsDetails.score)}%`;
-    els('mcAllAssetsScore').parentElement.title = 'Uses every investment account as an emergency fallback, including accounts excluded from the normal withdrawal strategy.';
-  }
-  if (els('mcHistoricalScore')) {
-    els('mcHistoricalScore').textContent = `${Math.round(historicalDetails.score)}%`;
-    els('mcHistoricalScore').parentElement.title = 'Uses 1,000 five-year blocks sampled from actual S&P 500 annual returns and permits every account as an emergency withdrawal source.';
-  }
-  els('scoreTitle').textContent = `Conservative Stress Score — ${label}`;
+  els('scoreTitle').textContent = `Retirement Confidence Score — ${label}`;
 
   const longevityLabel = depletionAge ? `Runs out at age ${depletionAge}` : `Lasts through age ${lifeExpectancy}`;
   const longevityClass = depletionAge ? 'warn' : 'ok';
@@ -11000,6 +10916,10 @@ function render() {
         </div>
       `).join('')}
     </div>`;
+
+  // Monte Carlo failure diagnostics + historical crisis stress test
+  renderMCDiagnostics(inputs, ctx, score);
+  renderCrisisStressTest(inputs, ctx);
 
   // Dashboard chart
   const retirementIndex = rows.findIndex(r => r.age === retirementAge);
