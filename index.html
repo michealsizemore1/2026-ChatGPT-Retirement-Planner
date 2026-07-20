@@ -5977,9 +5977,8 @@ function removeInsurancePolicy(i) { insurancePolicies.splice(i,1); renderInsuran
 
 // ---------- Brokerage pies (dynamic rows, M1 Finance) ----------
 let brokeragePies = [
-  { name:'Secondary Bridge If Needed / Cash Refill', balance:640, contribution:550 },
-  { name:'Sequence of Returns Risk (T-Bills)', balance:340, contribution:300, riskType:'cash', cashRate:3.56 },
-  { name:'Taxes Post Age 59.5', balance:11360, contribution:716 }
+  { name:'Sequence of Returns Risk (T-Bills)', balance:375, contribution:300, riskType:'cash', cashRate:3.56 },
+  { name:'All Things Bucket', balance:11857, contribution:716 }
 ];
 function renderBrokeragePieRows() {
   const container = els('brokeragePieRows');
@@ -6063,7 +6062,7 @@ function updatePieContribution(i, value) {
 
 // ---------- Withdrawal Strategy: ordered list of every individual account money gets drawn from in retirement ----------
 // Order is a flat array of account keys: 'trad', 'roth', 'hysa', and 'pie_0'..'pie_N-1' (index into brokeragePies).
-let withdrawalOrderState = ['trad', 'pie_0', 'pie_1', 'hysa', 'pie_2', 'roth'];
+let withdrawalOrderState = ['trad', 'pie_0', 'pie_1', 'hysa', 'roth'];
 let withdrawalModeCustom = true;
 // Accounts checked OFF in the Withdrawal Strategy list — kept as a separate array (rather than removing
 // them from withdrawalOrderState) so an excluded account still shows in the list at its usual position,
