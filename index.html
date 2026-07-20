@@ -882,6 +882,10 @@
           <input type="checkbox" id="spouseWorks">
           <label for="spouseWorks">Spouse has their own earnings record / Social Security</label>
         </div>
+        <div class="two-col" id="spouseOwnBenefitFields" style="display:none;">
+          <div class="field"><label>Spouse's own Social Security ($/mo, today's $)</label><input type="number" id="spouseSSMonthly" value="0" min="0" step="50"></div>
+          <div class="field"><label>Spouse's own Social Security start age</label><input type="number" id="spouseSSStartAge" value="67" min="62" max="70"></div>
+        </div>
         <p style="font-size:16.5px;color:var(--muted);margin:2px 0 0;">The plan runs through whichever of you two lives longer, so household spending doesn't stop early for the survivor.</p>
       </div>
     </div>
@@ -966,7 +970,7 @@
           </div>
           <div class="field"><label>Annuity yearly increase (%)</label><input type="number" id="annuityGrowth" value="0" step="0.1"></div>
         </div>
-        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.6;">Social Security (85%) and the annuity are taxed (Federal + Idaho) before comparing guaranteed income to spending (see the Income Gap &amp; Withdrawals page). Pensions and VA disability are set in the Pensions &amp; VA Disability card near the top of this page — VA disability stays fully tax-free.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.6;">Social Security taxation is calculated with the married-filing-jointly provisional-income thresholds (up to 85% may be taxable), and the annuity is taxable, before comparing guaranteed income with spending. Pensions and VA disability are set above — VA disability remains fully tax-free.</p>
       </div>
 
       <div class="card">
@@ -1369,7 +1373,7 @@
             <tbody id="gapRows"></tbody>
           </table>
         </div>
-        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Guaranteed income here is shown after federal + Idaho income tax (progressive, using your standard deduction) — VA disability stays untaxed, but Social Security (85%), pension, and annuity income all have real tax owed on them before they're available to spend. A positive surplus means guaranteed income covers that year's spending with room to spare; a gap (shown in red) is the shortfall pulled from your accounts in the order set on the Money Flows page. Pre-retirement years aren't shown — spending and withdrawals aren't tracked against the portfolio until retirement.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Guaranteed income here is shown after progressive federal and Idaho income tax using the standard deduction. VA disability stays untaxed; Social Security uses the married-filing-jointly provisional-income calculation, under which up to 85% may be taxable. A positive surplus means income covers spending; a red gap is pulled from accounts in the Money Flows order. Ordinary pre-retirement years are omitted; the separate Job Loss scenario does model pre-retirement spending and shortfalls.</p>
       </div>
     </div>
 
@@ -1588,7 +1592,7 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Federal<span class="sub-label">2026 brackets, Married Filing Jointly (10/12/22/24/32/35/37%)</span></h3>
         <div class="field"><label>Standard deduction ($/yr, MFJ)</label><input type="number" id="stdDeduction" value="32200" step="100"></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Social Security and spousal benefit are treated as 85% taxable (typical once other income is substantial); VA disability stays fully tax-free and isn't included. Both pensions and annuity income are fully taxable.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Social Security and the spousal benefit use the married-filing-jointly provisional-income calculation, so the taxable share can range from 0% to 85%. VA disability remains fully tax-free. Both pensions and annuity income are fully taxable.</p>
       </div>
 
       <div class="card">
@@ -5515,7 +5519,10 @@ function removeExpense(i) { expenses.splice(i,1); renderExpenseRows(); render();
 function renderCombinedExpensesCard(rows, inputs) {
   if (!els('combinedGrandTotal')) return;
   const expensesMonthly = expenses.reduce((s,e) => s + expenseValForBasis(e), 0);
-  const debtMonthly = debts.reduce((s,d) => s + (+d.payment || 0), 0);
+  const debtMonthly = debts.reduce((s,d) => {
+    const existsToday = d.startAge == null || d.startAge === '' || (+d.startAge <= inputs.currentAge);
+    return s + (existsToday ? (+d.payment || 0) : 0);
+  }, 0);
   const insuranceMonthly = insurancePolicies.reduce((s,p) => s + (+p.premium || 0), 0);
   const housingMonthly = (rows && rows.length ? rows[0].housingCost : 0) / 12;
   els('combinedExpenses').textContent = fmtMoney(expensesMonthly) + '/mo';
@@ -6480,6 +6487,8 @@ function readInputs() {
     spouseLifeExpectancy: +els('spouseLifeExpectancy').value,
     spouseBirthMonth: +els('spouseBirthMonth').value || 1,
     spouseWorks: els('spouseWorks').checked,
+    spouseSSMonthly: +els('spouseSSMonthly').value || 0,
+    spouseSSStartAge: +els('spouseSSStartAge').value || 67,
     spousalPct: +els('spousalPct').value/100,
     spousalStartAge: +els('spousalStartAge').value,
     ltcEnabled: els('ltcEnabled').checked,
@@ -6768,13 +6777,15 @@ function projectRun(inputs, ctx, randomize, shocks) {
           const idx = +key.slice(4);
           if (balBrokeragePies[idx] !== undefined) {
             if (taxCtx) {
-              const desiredGross = solveGrossForNet(taxCtx.stackBox.v, remain, LTCG_BRACKETS_MFJ, inputs.idahoRate);
+              const gainBase = taxCtx.stackBox.v + (taxCtx.gainBox ? taxCtx.gainBox.v : 0);
+              const desiredGross = solveGrossForNet(gainBase, remain, LTCG_BRACKETS_MFJ, inputs.idahoRate);
               const take = Math.min(desiredGross, Math.max(0, balBrokeragePies[idx]));
-              const taxAmt = taxOwedOnIncrement(taxCtx.stackBox.v, take, LTCG_BRACKETS_MFJ, inputs.idahoRate);
+              const taxAmt = taxOwedOnIncrement(gainBase, take, LTCG_BRACKETS_MFJ, inputs.idahoRate);
               const netTake = Math.min(remain, take - taxAmt);
               balBrokeragePies[idx] -= take; remain -= netTake; addDirectWithdrawal(key, take);
               const stateTaxAmt = inputs.idahoRate * take;
               stateTaxAnnual += stateTaxAmt; federalTaxAnnual += taxAmt - stateTaxAmt;
+              if (taxCtx.gainBox) taxCtx.gainBox.v += take;
               // LTCG-taxed pie draws don't add to the ordinary-income stack (a different income type for
               // bracket purposes) — matches takeFrom() below.
             } else {
@@ -6933,7 +6944,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
     // using whichever spouse's birthday actually governs that milestone — the spousal SS benefit follows the
     // spouse's own birth month, everything else follows the primary's.
     ssAmount = prorateFirstYear(age, inputs.ssAge, inputs.ssMonthly*12*ssInflator, inputs.birthMonth, inputs.currentAge);
-    spousalBenefit = !inputs.spouseWorks ? prorateFirstYear(age, ctx.effectiveSpousalStartAge, inputs.ssMonthly*inputs.spousalPct*12*ssInflator, inputs.spouseBirthMonth, inputs.currentAge) : 0;
+    spousalBenefit = inputs.spouseWorks
+      ? prorateFirstYear(age, inputs.spouseSSStartAge + ctx.ageGap, inputs.spouseSSMonthly*12*ssInflator, inputs.spouseBirthMonth, inputs.currentAge)
+      : prorateFirstYear(age, ctx.effectiveSpousalStartAge, inputs.ssMonthly*inputs.spousalPct*12*ssInflator, inputs.spouseBirthMonth, inputs.currentAge);
     // Real-world Social Security survivor rule, always on (independent of the separate Survivorship what-if
     // below, which stays opt-in only) — once you're past your own life expectancy, your spouse steps up
     // from the ~50% spousal benefit to your full benefit as a 100% survivor benefit. ssAmount itself doesn't
@@ -7067,7 +7080,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // then-Traditional order used everywhere else in this engine for an unplanned shortfall (LTC, future
       // expenses) — rather than pretending the bills simply don't get paid.
       if (jobLossActive) {
-        const preRetireNeed = Math.max(0, recurringLivingCostThisYear - (income + guaranteedIncome));
+        // Compare spending with after-tax resources. The previous gross-income comparison could show
+        // no gap even when pension taxes made the actual available cash insufficient.
+        const preRetireNeed = Math.max(0, recurringLivingCostThisYear + workingTaxesPaid - (income + guaranteedIncome));
         if (preRetireNeed > 0.01) {
           let preRemaining = preRetireNeed;
           const j1 = Math.min(preRemaining, balHYSA); balHYSA -= j1; preRemaining -= j1;
@@ -7262,6 +7277,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // Expenses, RMD, a Roth conversion, and the main spending gap) each see accurate brackets instead
       // of every one of them independently assuming it's the only draw competing for the lower brackets.
       let ordinaryIncomeStack = taxableBeforeWithdrawal;
+      let capitalGainsTaken = 0;
 
       // Long-Term Care and Future Expenses (both computed unconditionally, earlier in this loop iteration,
       // before this retirement-age branch split) get first claim on this year's guaranteed-income surplus —
@@ -7288,9 +7304,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
         const fromRoth = Math.min(ltcRemainingAfterSurplus, balRoth); balRoth -= fromRoth; addDirectWithdrawal('roth', fromRoth);
         let ltcUnfunded = ltcRemainingAfterSurplus - fromRoth;
         if (ltcUnfunded > 0.01 && inputs.allowEmergencyFallback) {
-          const ltcTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack } };
+          const ltcTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack }, gainBox: { v: capitalGainsTaken } };
           ltcUnfunded = withdrawInOrder(ltcUnfunded, effectiveWithdrawalOrder.filter(k => k !== 'roth'), ltcTaxCtx);
           ordinaryIncomeStack = ltcTaxCtx.stackBox.v;
+          capitalGainsTaken = ltcTaxCtx.gainBox.v;
         }
         if (ltcUnfunded > 0.01) markShortfall();
       }
@@ -7298,9 +7315,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
         const feFromSurplus = Math.min(futureExpenseCostThisYear, guaranteedIncomeSurplus);
         guaranteedIncomeSurplus -= feFromSurplus;
         const feRemainingAfterSurplus = futureExpenseCostThisYear - feFromSurplus;
-        const feTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack } };
+        const feTaxCtx = { earlyPenalty, stackBox: { v: ordinaryIncomeStack }, gainBox: { v: capitalGainsTaken } };
         const feRemaining = withdrawInOrder(feRemainingAfterSurplus, effectiveWithdrawalOrder, feTaxCtx);
         ordinaryIncomeStack = feTaxCtx.stackBox.v;
+        capitalGainsTaken = feTaxCtx.gainBox.v;
         if (feRemaining > 0.01) markShortfall();
       }
 
@@ -7335,9 +7353,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
           withdrawalByAccount[key] = (withdrawalByAccount[key] || 0) + netTaken;
           return;
         }
-        const desiredGross = solveGrossForNet(ordinaryIncomeStack, desiredNet, info.brackets, info.flatAdd);
+        const taxBase = key === 'trad' ? ordinaryIncomeStack : ordinaryIncomeStack + capitalGainsTaken;
+        const desiredGross = solveGrossForNet(taxBase, desiredNet, info.brackets, info.flatAdd);
         const grossTaken = Math.min(desiredGross, Math.max(0, bal[key]));
-        const taxAmt = taxOwedOnIncrement(ordinaryIncomeStack, grossTaken, info.brackets, info.flatAdd);
+        const taxAmt = taxOwedOnIncrement(taxBase, grossTaken, info.brackets, info.flatAdd);
         const netTaken = Math.min(desiredNet, grossTaken - taxAmt);
         bal[key] -= grossTaken;
         remaining -= netTaken;
@@ -7346,6 +7365,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         // Traditional TSP draws stack onto ordinary income for bracket purposes; LTCG-taxed pie draws
         // read the same stack to find their bracket but don't add to it (different income type).
         if (key === 'trad') ordinaryIncomeStack += grossTaken;
+        else capitalGainsTaken += grossTaken;
         // Split this withdrawal's tax back into Federal vs Idaho-state shares for the Taxes page's
         // Estimated Taxes chart — Idaho's flat rate on the gross is always the state slice; whatever's
         // left (bracket-blended federal + early-withdrawal penalty for Traditional TSP, or the federal
@@ -10347,7 +10367,11 @@ async function sendVaultChatMessage() {
 // ---------- Settings: backup / restore / reset ----------
 function downloadBackup() {
   const state = saveState();
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  // Never export a secret into a portable JSON file. Keep the key in this browser's local state,
+  // but remove it from the downloadable copy before serialization.
+  const exportState = JSON.parse(JSON.stringify(state));
+  if (exportState.fields) delete exportState.fields.anthropicApiKey;
+  const blob = new Blob([JSON.stringify(exportState, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -10733,6 +10757,7 @@ function renderRothConversionComparison(inputs, ctx) {
 
 function render() {
   els('spousalBenefitFields').style.display = els('spouseWorks').checked ? 'none' : 'grid';
+  els('spouseOwnBenefitFields').style.display = els('spouseWorks').checked ? 'grid' : 'none';
   els('buyHomeFields').style.display = els('buyHome').checked ? 'block' : 'none';
   els('ltcFields').style.display = els('ltcEnabled').checked ? 'block' : 'none';
   els('pill55').classList.toggle('active', +els('retirementAge').value === 55);
