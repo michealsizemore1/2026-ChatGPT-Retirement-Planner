@@ -10880,7 +10880,16 @@ function render() {
   if (els('totalAssetsTile')) els('totalAssetsTile').textContent = fmtMoney(totalCurrentAssets);
   renderCheckpointTracker(inputs, rows);
   renderInheritedAccountBreakdown(inputs, rows);
-  const netWorthToday = totalCurrentAssets - debts.reduce((s,d) => s + (+d.balance||0), 0);
+  // "Today" must include only debts that already exist. Future planned loans (for example,
+  // replacement vehicles beginning at ages 62 and 77) belong in the projection starting in
+  // those years, but are not liabilities on today's household balance sheet.
+  const currentDebtBalance = debts.reduce((sum, debt) => {
+    const startsInFuture = debt.startAge != null && debt.startAge !== '' && +debt.startAge > inputs.currentAge;
+    return sum + (startsInFuture ? 0 : (+debt.balance || 0));
+  }, 0);
+  // Checking is treated as day-to-day operating cash and intentionally excluded from this tile.
+  // Savings and HYSA remain part of net worth.
+  const netWorthToday = totalCurrentAssets - inputs.checkingBalance - currentDebtBalance;
   const rowAtRetirement = rows.find(r => r.age === retirementAge);
   const netWorthAtRetirement = rowAtRetirement ? rowAtRetirement.netWorth : (rows.length ? rows[rows.length-1].netWorth : netWorthToday);
 
