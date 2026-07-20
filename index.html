@@ -702,10 +702,11 @@
         <span class="dollar-toggle-btn spending-basis-toggle-btn" data-mode="mustspend" onclick="setSpendingBasis('mustspend')"><span class="mc-mini-score" id="mcMiniMustspend"></span><span>Must Spend</span><span class="mc-mini-longevity" id="mcMiniLongevityMustspend" title="Ending net worth if your spouse lives to their life expectancy, projected under this basis"></span></span>
         <span class="dollar-toggle-btn spending-basis-toggle-btn active" data-mode="liketo" onclick="setSpendingBasis('liketo')"><span class="mc-mini-score" id="mcMiniLiketo"></span><span>Like to Spend</span><span class="mc-mini-longevity" id="mcMiniLongevityLiketo" title="Ending net worth if your spouse lives to their life expectancy, projected under this basis"></span></span>
       </div>
-      <div class="job-loss-date-wrap" title="If Job Loss is selected above, the projection stays on normal income/Like to Spend until this date, then switches to zero income, zero TSP/brokerage contributions, and the Job Loss expense column">
+      <div class="job-loss-date-wrap" title="If Job Loss is selected above, civilian salary and paycheck contributions stop on this date. Pension and VA disability continue. The reduced Job Loss expense column applies only until retirement; normal Like to Spend expenses resume at retirement.">
         <input type="date" id="jobLossDate" onchange="setJobLossDate(this.value)">
         <span id="jobLossDateHint"></span>
       </div>
+      <div style="font-size:13.5px;color:var(--muted);margin-top:5px;line-height:1.35;max-width:760px;">Job Loss assumes civilian salary and paycheck contributions stop from this date through retirement. Pension and VA disability continue normally, and any after-tax surplus is saved to HYSA. Reduced Job Loss expenses apply only during unemployment; Like to Spend resumes at retirement. Your strategy is to leave Traditional TSP untouched until age 59½ after a pre-55 separation, avoiding the additional 10% tax.</div>
     </div>
   </div>
 </header>
@@ -1293,7 +1294,7 @@
         <div class="total-row"><span>Job Loss total (excl. housing)</span><span id="expenseJobLossTotal">$0</span></div>
         <div class="total-row"><span>Must Spend total (excl. housing)</span><span id="expenseMustSpendTotal">$0</span></div>
         <div class="total-row"><span>Like to Spend total (excl. housing)</span><span id="expenseTotal">$0</span></div>
-        <p style="font-size:15.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">The <b>Like to Spend / Job Loss / Must Spend</b> toggle in the header picks which of these three columns actually drives the whole projection — the dashboard, guardrails, the Gap page, Explorers, and every Monte Carlo run all switch together. Whichever ones AREN'T selected still matter: when dynamic spending guardrails (Assumptions page) cut spending in a down market, the cut never pushes recurring expenses below the Must Spend total — housing, debt, insurance, and medical premiums are already treated as 100% essential and are never cut. Job Loss is a test column — leave a row's Job Loss blank and it falls back to that row's Must Spend amount. Each row also has its own <b>Starts / Ends</b> date pickers below it — leave both blank for an expense that applies the whole plan (the default), or set one or both for something that begins or ends partway through retirement (childcare ending, a car payment finishing, a hobby starting once you have more free time).</p>
+        <p style="font-size:15.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">The <b>Like to Spend / Job Loss / Must Spend</b> toggle controls the projection. Must Spend is a full-plan essential budget. Job Loss is temporary: it begins on the selected Job Loss date and ends at retirement, when Like to Spend resumes automatically. Pension and VA disability continue during unemployment; only civilian salary and paycheck contributions stop. Leave a Job Loss amount blank and it falls back to Must Spend. Dynamic guardrails never cut below Must Spend, and housing, debt, insurance, and medical premiums remain essential. Each row can also have optional <b>Starts / Ends</b> dates.</p>
       </div>
 
       <div class="card">
@@ -6675,14 +6676,18 @@ function projectRun(inputs, ctx, randomize, shocks) {
     // 'jobloss' AND this year is at/after the specific age the job loss is assumed to happen (inputs.jobLossAge,
     // set from the date field under the toggle) — years before that still run on the normal Like to Spend
     // baseline, same as if the toggle weren't on at all.
-    const jobLossActive = spendingBasis === 'jobloss' && inputs.jobLossAge != null && age >= inputs.jobLossAge;
+    const jobLossSeparationOccurred = spendingBasis === 'jobloss' && inputs.jobLossAge != null && age >= inputs.jobLossAge;
+    const jobLossActive = jobLossSeparationOccurred && age < inputs.retirementAge;
     // Job Loss test: if this involuntary separation happens before the calendar year you turn 55
     // (ctx.jobLossQualifiesForRuleOf55 — see buildContext), Traditional TSP isn't just penalized before
     // 59.5, it's genuinely unavailable as a withdrawal source at all until then — a real TSP/401(k) rule,
     // independent of the blanket "Rule of 55 applies" toggle (Taxes page), which only reflects the
     // baseline plan's assumption of separating at 55+. Every place below that could otherwise pull from
     // Traditional TSP during a Job Loss year checks this first.
-    const tradAvailableForJobLoss = !(jobLossActive && !ctx.jobLossQualifiesForRuleOf55 && age < 59.5);
+    // Personal strategy: after a pre-55 separation, leave Traditional TSP untouched until age 59½
+    // rather than taking an available early distribution and paying the additional 10% tax.
+    const jobLossEarlyPenalty = 0;
+    const tradAvailableForJobLoss = !(jobLossSeparationOccurred && !ctx.jobLossQualifiesForRuleOf55 && age < 59.5);
     // Same restriction applied to every place that otherwise walks your configured withdrawal order
     // (LTC is unaffected — it's Roth-only and never touches Trad regardless).
     const effectiveWithdrawalOrder = tradAvailableForJobLoss ? inputs.withdrawalOrder : inputs.withdrawalOrder.filter(k => k !== 'trad');
@@ -7053,6 +7058,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // keeps flowing and now exceeds Job Loss-level spending) stays as unswept slack rather than getting
       // invested into a brokerage pie — "no longer contributing to TSP or brokerage accounts" means the whole
       // paycheck-era contribution pipeline stops, not just the fixed-dollar/% pieces above.
+      const jobLossSurplusToHYSA = jobLossActive ? excessIncomeAvailable : 0;
       excessIncomeSaved = jobLossActive ? 0 : (Math.max(0, excessIncomeAvailable - paidOffDebtRedirect) * (inputs.excessIncomeSavingsPct || 0) + paidOffDebtRedirect);
       // Job Loss test: pre-retirement years never had a withdrawal mechanism before this feature, because a
       // shortfall wasn't possible — your paycheck was always assumed to at least cover living costs, so any
@@ -7078,7 +7084,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
               // Skipped entirely (rather than just penalized) if this Job Loss year doesn't qualify for
               // Rule of 55 and you're not 59.5 yet — see tradAvailableForJobLoss above.
               if (preRemaining > 0 && tradAvailableForJobLoss) {
-                const fromPreTrad = Math.min(preRemaining, balTrad); balTrad -= fromPreTrad; preRemaining -= fromPreTrad;
+                const fromPreTrad = Math.min(preRemaining, balTrad);
+                balTrad -= fromPreTrad;
+                preRemaining -= fromPreTrad;
                 addDirectWithdrawal('trad', fromPreTrad);
               }
             }
@@ -7109,7 +7117,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         contribByAccount['pie_'+excessDestIdx] = (contribByAccount['pie_'+excessDestIdx]||0) + excessIncomeSaved;
       }
       else applyPooledDelta(balBrokeragePies, excessIncomeSaved);
-      balChecking *= (1+inputs.cashRate); balSavings *= (1+inputs.cashRate); balHYSA *= (1+inputs.hysaRate);
+      balChecking *= (1+inputs.cashRate); balSavings *= (1+inputs.cashRate); balHYSA = balHYSA*(1+inputs.hysaRate) + jobLossSurplusToHYSA;
       // IRMAA lookback proxy: this year's approximate MAGI (taxable wages after the pre-tax Traditional TSP
       // contribution, plus the taxable share of any guaranteed income already flowing), carried forward as
       // next year's IRMAA basis — see the post-retirement branch below for why a 1-year lookback is used
