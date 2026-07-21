@@ -4922,7 +4922,7 @@ function toggleCard(h3) {
   window.dispatchEvent(new Event('resize'));
 }
 
-function showPage(pageId) {
+function showPage(pageId, persistPage = true) {
   if (!els('sidenav').querySelector(`[data-page="${pageId}"]`)) pageId = 'dashboard';
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
@@ -4940,7 +4940,9 @@ function showPage(pageId) {
   if (pageId === 'accounts') { loadTrackerFrame(); renderCCSpendingCharts(); }
   if (pageId === 'vault') { renderVaultDocuments(); renderVaultAiGate(); renderVaultSearch(); }
   if (pageId === 'savings') renderSavingsPage();
-  try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
+  if (persistPage) {
+    try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
+  }
   closeMenu();
 }
 
@@ -5443,7 +5445,7 @@ function restoreAccountsCardsBackup(backup) {
   } catch (e) { /* storage unavailable, ignore */ }
 }
 
-function saveState() {
+function saveState(includePortableData = false) {
   const fields = {};
   document.querySelectorAll('.page input, .page select').forEach(el => {
     if (!el.id) return;
@@ -5458,8 +5460,15 @@ function saveState() {
   // so re-applying a blob that's only as fresh as the last unrelated field edit could clobber a more
   // recent checkpoint or tracker entry) — only an explicit Restore from Backup applies them, in
   // restoreFromFile() below.
-  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, sharedNotesText, checkpointBaseline, checkpointHistory, accountsCardsBackup: readAccountsCardsBackup() };
+  // Automatic browser saves stay deliberately lightweight. Accounts & Cards already persists under
+  // its own localStorage keys; copying the entire register (especially receipt images) into this main
+  // state blob on every edit can exceed the browser quota and make ALL planner saves fail. The portable
+  // copy is included only when explicitly downloading a JSON backup.
+  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, sharedNotesText, checkpointBaseline, checkpointHistory };
+  // Persist the compact version first. The potentially large portable Accounts & Cards copy is added
+  // only to the object returned to Download Backup and is never duplicated into localStorage.
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
+  if (includePortableData) state.accountsCardsBackup = readAccountsCardsBackup();
   return state;
 }
 
@@ -10580,7 +10589,7 @@ async function sendVaultChatMessage() {
 
 // ---------- Settings: backup / restore / reset ----------
 function downloadBackup() {
-  const state = saveState();
+  const state = saveState(true);
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -10645,6 +10654,7 @@ function restoreApiKeyAfterPrint() {
   const keyInput = els('anthropicApiKey');
   if (keyInput && apiKeyBeforePrint !== null) keyInput.value = apiKeyBeforePrint;
   apiKeyBeforePrint = null;
+  saveState();
 }
 function printFullPlan() {
   render();
@@ -10655,7 +10665,8 @@ function printFullPlan() {
     window.removeEventListener('afterprint', restoreOriginalPage);
   };
   window.addEventListener('afterprint', restoreOriginalPage);
-  document.querySelectorAll('.nav-item[data-page]').forEach(n => showPage(n.dataset.page));
+  // Building hidden sections for print must not overwrite the user's saved active section.
+  document.querySelectorAll('.nav-item[data-page]').forEach(n => showPage(n.dataset.page, false));
   window.print();
 }
 
@@ -11398,6 +11409,15 @@ renderInsuranceRows();
 // anyway), fixes every field at once instead of just the one that got reported.
 const shellEl = document.querySelector('.shell');
 if (shellEl) {
+  let pendingFieldSave = null;
+  shellEl.addEventListener('input', function(e) {
+    // Persist ordinary fields while they are being edited. Browsers do not always dispatch a final
+    // "change" event when Refresh is clicked while an input still has focus, which previously made
+    // the latest value disappear. This lightweight save does not rerun Monte Carlo on every keystroke.
+    if (!e.target || !e.target.matches || !e.target.matches('input, select') || e.target.classList.contains('shared-notes-textarea')) return;
+    clearTimeout(pendingFieldSave);
+    pendingFieldSave = setTimeout(() => saveState(), 150);
+  });
   shellEl.addEventListener('change', function(e) {
     // Shared Notes textareas (class="shared-notes-textarea", one per page) are deliberately excluded
     // here — they persist directly via updateSharedNotes()'s own oninput handler instead of the full
@@ -11406,6 +11426,20 @@ if (shellEl) {
     if (e.target && e.target.matches && e.target.matches('input, select')) render();
   });
 }
+
+// A final synchronous snapshot covers Refresh, closing the tab, navigating away, and mobile browsers
+// suspending the page before the short input debounce above has fired. The active section is stored
+// independently so reopening never defaults to Dashboard unless Dashboard was actually last viewed.
+function persistBeforeLeaving() {
+  const activePage = document.querySelector('.page.active');
+  try {
+    if (activePage && activePage.dataset.page) localStorage.setItem(ACTIVE_PAGE_KEY, activePage.dataset.page);
+  } catch (e) { /* storage unavailable, ignore */ }
+  saveState();
+}
+window.addEventListener('pagehide', persistBeforeLeaving);
+window.addEventListener('beforeunload', persistBeforeLeaving);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') persistBeforeLeaving(); });
 
 // Refresh currentAge/spouseAge from the actual birthdates on every load, so they never go stale
 // waiting on a manual edit (this must run after restoreState has populated birthDate/spouseBirthDate
