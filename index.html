@@ -4910,6 +4910,11 @@ function closeMenu() {
   els('navOverlay').classList.remove('open');
 }
 
+function isKnownPage(pageId) {
+  return Array.from(document.querySelectorAll('#sidenav .nav-item[data-page]'))
+    .some(item => item.dataset.page === pageId);
+}
+
 // Collapse/expand a card by clicking its title. Purely a display toggle —
 // doesn't touch any field values, so nothing here affects the plan or Monte Carlo score.
 function toggleCard(h3) {
@@ -4923,7 +4928,7 @@ function toggleCard(h3) {
 }
 
 function showPage(pageId, persistPage = true) {
-  if (!els('sidenav').querySelector(`[data-page="${pageId}"]`)) pageId = 'dashboard';
+  if (!isKnownPage(pageId)) pageId = 'dashboard';
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
   els('currentPageLabel').textContent = PAGE_LABELS[pageId] || pageId;
@@ -4942,6 +4947,14 @@ function showPage(pageId, persistPage = true) {
   if (pageId === 'savings') renderSavingsPage();
   if (persistPage) {
     try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
+    // Keep the active section in the URL as well as localStorage. Some browsers treat local file
+    // storage inconsistently, while the #section marker always survives a normal refresh and also
+    // works on the GitHub-hosted copy without reloading the planner.
+    const pageHash = '#' + encodeURIComponent(pageId);
+    if (location.hash !== pageHash) {
+      try { history.replaceState(null, '', pageHash); }
+      catch (e) { try { location.hash = pageHash; } catch (ignored) {} }
+    }
   }
   closeMenu();
 }
@@ -11433,7 +11446,11 @@ if (shellEl) {
 function persistBeforeLeaving() {
   const activePage = document.querySelector('.page.active');
   try {
-    if (activePage && activePage.dataset.page) localStorage.setItem(ACTIVE_PAGE_KEY, activePage.dataset.page);
+    if (activePage && activePage.dataset.page) {
+      localStorage.setItem(ACTIVE_PAGE_KEY, activePage.dataset.page);
+      const pageHash = '#' + encodeURIComponent(activePage.dataset.page);
+      if (location.hash !== pageHash) history.replaceState(null, '', pageHash);
+    }
   } catch (e) { /* storage unavailable, ignore */ }
   saveState();
 }
@@ -11454,10 +11471,21 @@ recomputeAgesFromDates();
 
 render();
 
-try {
-  const savedActivePage = localStorage.getItem(ACTIVE_PAGE_KEY);
-  if (savedActivePage) showPage(savedActivePage);
-} catch (e) { /* storage unavailable, ignore */ }
+// Restore from the URL first, then fall back to this browser's saved section. The URL form makes
+// refresh reliable for both file:// and GitHub Pages and lets a section-specific link open directly.
+let initialPage = '';
+try { initialPage = decodeURIComponent(location.hash.slice(1)); } catch (e) { initialPage = ''; }
+if (!isKnownPage(initialPage)) {
+  try { initialPage = localStorage.getItem(ACTIVE_PAGE_KEY) || ''; } catch (e) { initialPage = ''; }
+}
+if (initialPage) showPage(initialPage);
+
+// Browser Back/Forward can change only the section marker; keep the visible page in step with it.
+window.addEventListener('hashchange', () => {
+  let pageId = '';
+  try { pageId = decodeURIComponent(location.hash.slice(1)); } catch (e) { return; }
+  if (isKnownPage(pageId)) showPage(pageId);
+});
 </script>
 </body>
 </html>
