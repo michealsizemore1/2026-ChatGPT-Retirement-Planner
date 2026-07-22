@@ -4915,6 +4915,23 @@ function isKnownPage(pageId) {
     .some(item => item.dataset.page === pageId);
 }
 
+function activatePageShell(pageId) {
+  if (!isKnownPage(pageId)) pageId = 'dashboard';
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
+  els('currentPageLabel').textContent = PAGE_LABELS[pageId] || pageId;
+  return pageId;
+}
+
+function readInitialPage() {
+  let pageId = '';
+  try { pageId = decodeURIComponent(location.hash.slice(1)); } catch (e) { pageId = ''; }
+  if (!isKnownPage(pageId)) {
+    try { pageId = localStorage.getItem(ACTIVE_PAGE_KEY) || ''; } catch (e) { pageId = ''; }
+  }
+  return isKnownPage(pageId) ? pageId : '';
+}
+
 // Collapse/expand a card by clicking its title. Purely a display toggle —
 // doesn't touch any field values, so nothing here affects the plan or Monte Carlo score.
 function toggleCard(h3) {
@@ -4928,10 +4945,17 @@ function toggleCard(h3) {
 }
 
 function showPage(pageId, persistPage = true) {
-  if (!isKnownPage(pageId)) pageId = 'dashboard';
-  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
-  els('currentPageLabel').textContent = PAGE_LABELS[pageId] || pageId;
+  pageId = activatePageShell(pageId);
+  // Save immediately after the visible section changes. Page-specific charts and tools initialize
+  // below; none of them should be able to prevent the navigation choice from being remembered.
+  if (persistPage) {
+    try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
+    const pageHash = '#' + encodeURIComponent(pageId);
+    if (location.hash !== pageHash) {
+      try { history.replaceState(null, '', pageHash); }
+      catch (e) { try { location.hash = pageHash; } catch (ignored) {} }
+    }
+  }
   // Every collapsible card collapses each time its section is visited, so you always land on a clean,
   // scannable list of titles. Only cards with an actual <h3 onclick="toggleCard(this)"> header are
   // collapsible — a few cards (What If I..., Market Explorer) use a plain <h2> instead because they're
@@ -4945,17 +4969,6 @@ function showPage(pageId, persistPage = true) {
   if (pageId === 'accounts') { loadTrackerFrame(); renderCCSpendingCharts(); }
   if (pageId === 'vault') { renderVaultDocuments(); renderVaultAiGate(); renderVaultSearch(); }
   if (pageId === 'savings') renderSavingsPage();
-  if (persistPage) {
-    try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
-    // Keep the active section in the URL as well as localStorage. Some browsers treat local file
-    // storage inconsistently, while the #section marker always survives a normal refresh and also
-    // works on the GitHub-hosted copy without reloading the planner.
-    const pageHash = '#' + encodeURIComponent(pageId);
-    if (location.hash !== pageHash) {
-      try { history.replaceState(null, '', pageHash); }
-      catch (e) { try { location.hash = pageHash; } catch (ignored) {} }
-    }
-  }
   closeMenu();
 }
 
@@ -11403,6 +11416,12 @@ try {
   }
 } catch (e) { /* storage unavailable, ignore */ }
 
+// Restore the visible section before building rows, charts, and Monte Carlo results. Previously this
+// happened after render(); if any optional chart/library failed during startup, execution stopped first
+// and the still-active Dashboard was left on screen even though the correct section had been saved.
+const initialPageAtBoot = readInitialPage();
+if (initialPageAtBoot) activatePageShell(initialPageAtBoot);
+
 renderExpenseRows();
 renderBrokeragePieRows();
 renderPieContributionRows();
@@ -11471,14 +11490,9 @@ recomputeAgesFromDates();
 
 render();
 
-// Restore from the URL first, then fall back to this browser's saved section. The URL form makes
-// refresh reliable for both file:// and GitHub Pages and lets a section-specific link open directly.
-let initialPage = '';
-try { initialPage = decodeURIComponent(location.hash.slice(1)); } catch (e) { initialPage = ''; }
-if (!isKnownPage(initialPage)) {
-  try { initialPage = localStorage.getItem(ACTIVE_PAGE_KEY) || ''; } catch (e) { initialPage = ''; }
-}
-if (initialPage) showPage(initialPage);
+// Finish any page-specific setup after the main render. The section itself was already activated above,
+// so it remains correct even if an unrelated startup calculation fails before this point.
+if (initialPageAtBoot) showPage(initialPageAtBoot);
 
 // Browser Back/Forward can change only the section marker; keep the visible page in step with it.
 window.addEventListener('hashchange', () => {
