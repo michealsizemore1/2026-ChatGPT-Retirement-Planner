@@ -140,6 +140,15 @@
   }
   .nav-item:hover{background:#f2f6f5;}
   .nav-item.active{background:var(--teal); color:#fff; font-weight:600;}
+  .nav-dropdown{margin-bottom:2px;}
+  .nav-dropdown-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:transparent;font-family:inherit;text-align:left;}
+  .nav-caret{font-size:14px;transition:transform .18s ease;}
+  .nav-dropdown.open .nav-caret{transform:rotate(180deg);}
+  .nav-submenu{display:none;padding:3px 0 7px 13px;border-left:2px solid var(--border);margin:2px 0 4px 14px;}
+  .nav-dropdown.open .nav-submenu{display:block;}
+  .nav-subitem{display:block;width:100%;border:0;background:transparent;border-radius:7px;padding:9px 10px;text-align:left;font-family:inherit;font-size:14.5px;line-height:1.25;color:var(--muted);cursor:pointer;white-space:normal;}
+  .nav-subitem:hover{background:#f2f6f5;color:var(--navy);}
+  .nav-subitem.active{background:var(--teal-light);color:var(--teal);font-weight:700;}
 
   .page{display:none;}
   .page.active{display:block;}
@@ -749,7 +758,6 @@
   <div class="nav-item" data-page="debt" onclick="showPage('debt')">Debt</div>
   <div class="nav-item" data-page="vault" onclick="showPage('vault')">Document Vault</div>
   <div class="nav-item" data-page="estate" onclick="showPage('estate')">Estate Planning</div>
-  <div class="nav-item" data-page="explorers" onclick="showPage('explorers')">Explorers</div>
   <div class="nav-item" data-page="housing" onclick="showPage('housing')">Housing</div>
   <div class="nav-item" data-page="gap" onclick="showPage('gap')">Income Gap &amp; Withdrawals</div>
   <div class="nav-item" data-page="insurance" onclick="showPage('insurance')">Insurance</div>
@@ -760,6 +768,20 @@
   <div class="nav-item" data-page="survivorship" onclick="showPage('survivorship')">Survivorship</div>
   <div class="nav-item" data-page="taxes" onclick="showPage('taxes')">Taxes</div>
   <div class="nav-item" data-page="settings" onclick="showPage('settings')">Settings</div>
+  <div class="nav-dropdown" id="explorerNavGroup">
+    <button type="button" class="nav-item nav-dropdown-toggle" data-page="explorers" onclick="toggleExplorerMenu(event)"><span>Explorers</span><span class="nav-caret">&#9662;</span></button>
+    <div class="nav-submenu" id="explorerSubmenu">
+      <button type="button" class="nav-subitem" data-explorer-nav="whatif" onclick="showExplorerAnalysis('whatif')">What If I...</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="market" onclick="showExplorerAnalysis('market')">Market Explorer</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="allocation" onclick="showExplorerAnalysis('allocation')">Allocation Explorer</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="historical" onclick="showExplorerAnalysis('historical')">Historical Backtest</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="socialsecurity" onclick="showExplorerAnalysis('socialsecurity')">Social Security Claiming</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="comparison" onclick="showExplorerAnalysis('comparison')">Scenario Comparison</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="whatifresults" onclick="showExplorerAnalysis('whatifresults')">What-If Scenario Results</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="marketrisk" onclick="showExplorerAnalysis('marketrisk')">Market Risk Scenarios</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="sensitivity" onclick="showExplorerAnalysis('sensitivity')">Sensitivity Analysis</button>
+    </div>
+  </div>
 </nav>
 
 <div class="shell">
@@ -1756,7 +1778,7 @@
       </div>
       <div class="page-header"><h2>Explorers</h2><p>What-if and market-risk scenarios, each compared against your current plan. Dollar columns respect the Today's $ / Future $ toggle in the header.</p></div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="whatif">
         <h3 onclick="toggleCard(this)">What If I...<span class="sub-label">Pick a quick scenario and see the impact on your savings over time</span></h3>
         <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);">Explore these common "what if" scenarios and see the impact on your savings over time. Pick one to compare it against your current plan below — click it again to go back to just your current plan.</p>
         <div class="whatif-card-grid" id="whatIfCardGrid"></div>
@@ -1765,7 +1787,7 @@
         <p style="font-size:15.5px;color:var(--muted);margin:0;">"Savings" here is your investable balance plus cash (TSP, brokerage, checking/savings/HYSA) — it doesn't include home equity.</p>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="market">
         <h3 onclick="toggleCard(this)">Market Explorer<span class="sub-label">Downturn stress-tests with a Chance-of-Success readout</span></h3>
         <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);">What if you experience a market downturn or a sequence of poor returns around your retirement date? See whether your portfolio will sustain withdrawals to meet your financial goals.</p>
         <div class="info-banner" id="marketExplorerBanner"><span>This explorer always runs on average (non-randomized) assumptions, regardless of Monte Carlo settings used elsewhere in your plan.</span><button class="info-banner-close" onclick="els('marketExplorerBanner').style.display='none'" aria-label="Dismiss">×</button></div>
@@ -1784,7 +1806,7 @@
         <p style="font-size:15.5px;color:var(--muted);margin:0;">"Savings" here is your investable balance plus cash (TSP, brokerage, checking/savings/HYSA) — it doesn't include home equity.</p>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="allocation">
         <h3 onclick="toggleCard(this)">Allocation Explorer<span class="sub-label">Compare a life-stage allocation against your current plan</span></h3>
         <p style="margin:0 0 12px;font-size:16.5px;color:var(--muted);line-height:1.55;">Explore how a portfolio that gradually becomes more protective around retirement could affect your plan. Choose any strategy below. This is comparison-only: it does not change your actual TSP, brokerage pies, assumptions, or baseline Monte Carlo score.</p>
         <div class="info-banner"><span>Educational model only - not investment advice. The model applies to market-linked TSP and brokerage balances; your cash-like Sequence of Returns Risk pie keeps its own fixed rate.</span></div>
@@ -1803,14 +1825,14 @@
         <div class="note">The five strategy profiles and their forward-looking return/volatility assumptions follow Boldin's published Allocation Explorer beta methodology as of July 2026. The result is an estimate, not a recommendation or guarantee.</div>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="historical">
         <h3 onclick="toggleCard(this)">Historical Backtest<span class="sub-label">How your real plan would have done starting in every past market year</span></h3>
         <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);">Instead of randomly-drawn returns, this replays your exact plan using the ACTUAL S&amp;P 500 return for every year of your plan's length, starting from every historical year with enough runway (1928 onward). One bar per possible starting year — green means your plan survived that real stretch of market history, red means it didn't. Uses your assumed inflation rate throughout (not that specific year's real inflation), and applies the same historical return to both pre- and post-retirement years.</p>
         <div id="historicalBacktestHeadline" style="font-size:18px;margin-bottom:12px;"></div>
         <div class="mini-chart-card chart-horizontal"><canvas id="chart_historical_backtest"></canvas></div>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="socialsecurity">
         <h3 onclick="toggleCard(this)">Social Security Claiming Age<span class="sub-label">Compare claiming at 62, 65, 67, and 70 side by side</span></h3>
         <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);">Runs your full plan at several Social Security claiming ages (deriving each one's monthly benefit from your entered age/amount using standard SSA early/delayed-retirement factors) so you can see the actual effect on your confidence score, not just the raw benefit amount. Same 1000-simulation Monte Carlo as everything else on this page, so it's directly comparable — but that means 5 batches at once, so it runs on demand rather than automatically.</p>
         <button class="add-btn" id="ssComparisonRunBtn" onclick="runSSComparisonAndRender()">Run Analysis</button>
@@ -1826,7 +1848,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="comparison">
         <h3 onclick="toggleCard(this)">Scenario Comparison<span class="sub-label">Pick any combination and compare them side by side</span></h3>
         <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);">Select any number of scenarios below — each one compares against your current plan independently (they don't combine with each other) — and see Confidence Score, savings trajectory, and ending balances for all of them side by side in one table instead of one at a time.</p>
         <div class="whatif-card-grid" id="compareCardGrid"></div>
@@ -1846,7 +1868,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="whatifresults">
         <h3 onclick="toggleCard(this)">What-If Scenarios<span class="sub-label">Single-lever changes to your plan</span></h3>
         <div class="mini-chart-card chart-horizontal"><canvas id="chart_whatif"></canvas></div>
         <div class="table-scroll">
@@ -1857,7 +1879,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="marketrisk">
         <h3 onclick="toggleCard(this)">Market Risk Scenarios<span class="sub-label">Stress-tests using return shocks, weak markets, or high inflation</span></h3>
         <div class="mini-chart-card chart-horizontal"><canvas id="chart_marketrisk"></canvas></div>
         <div class="table-scroll">
@@ -1868,7 +1890,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-explorer-analysis="sensitivity">
         <h3 onclick="toggleCard(this)">Sensitivity Analysis<span class="sub-label">Which single input moves your confidence score the most</span></h3>
         <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);">Nudges five key levers up and down — one at a time, holding everything else at your current plan — and shows how much each one alone swings your confidence score. Sorted so the biggest swings are on top, which is usually where your attention is best spent. This runs 11 separate simulation batches (~3,300 runs total), so it's not automatic like the rest of this page — click below whenever you want a fresh read.</p>
         <button class="add-btn" id="sensitivityRunBtn" onclick="runSensitivityAnalysisAndRender()">Run Analysis</button>
@@ -4939,6 +4961,14 @@ const PAGE_LABELS = {
   taxes:'Taxes', assumptions:'Assumptions & Guardrails',
   explorers:'Explorers', coach:'Coach', settings:'Settings'
 };
+const EXPLORER_ANALYSIS_KEY = 'retirementPlannerExplorerAnalysis_v1';
+const EXPLORER_ANALYSES = {
+  whatif:'What If I...', market:'Market Explorer', allocation:'Allocation Explorer',
+  historical:'Historical Backtest', socialsecurity:'Social Security Claiming',
+  comparison:'Scenario Comparison', whatifresults:'What-If Scenario Results',
+  marketrisk:'Market Risk Scenarios', sensitivity:'Sensitivity Analysis'
+};
+let selectedExplorerAnalysis = 'whatif';
 
 function toggleMenu() {
   els('sidenav').classList.toggle('open');
@@ -4947,6 +4977,66 @@ function toggleMenu() {
 function closeMenu() {
   els('sidenav').classList.remove('open');
   els('navOverlay').classList.remove('open');
+}
+
+function toggleExplorerMenu(event) {
+  if (event) event.stopPropagation();
+  const group = els('explorerNavGroup');
+  if (group) group.classList.toggle('open');
+}
+function isKnownExplorerAnalysis(analysisId) {
+  return Object.prototype.hasOwnProperty.call(EXPLORER_ANALYSES, analysisId);
+}
+function readInitialExplorerAnalysis() {
+  let analysisId = '';
+  try {
+    const parts = decodeURIComponent(location.hash.slice(1)).split('/');
+    if (parts[0] === 'explorers') analysisId = parts[1] || '';
+  } catch (e) { analysisId = ''; }
+  if (!isKnownExplorerAnalysis(analysisId)) {
+    try { analysisId = localStorage.getItem(EXPLORER_ANALYSIS_KEY) || ''; } catch (e) { analysisId = ''; }
+  }
+  if (!isKnownExplorerAnalysis(analysisId) && isKnownExplorerAnalysis(selectedExplorerAnalysis)) analysisId = selectedExplorerAnalysis;
+  return isKnownExplorerAnalysis(analysisId) ? analysisId : 'whatif';
+}
+function activateExplorerAnalysis(analysisId, scrollToSection = true, persist = true) {
+  if (!isKnownExplorerAnalysis(analysisId)) analysisId = 'whatif';
+  selectedExplorerAnalysis = analysisId;
+  const page = document.querySelector('.page[data-page="explorers"]');
+  if (!page) return;
+  const cards = page.querySelectorAll('[data-explorer-analysis]');
+  cards.forEach(card => card.classList.add('collapsed'));
+  const target = page.querySelector(`[data-explorer-analysis="${analysisId}"]`);
+  if (target) target.classList.remove('collapsed');
+  document.querySelectorAll('.nav-subitem[data-explorer-nav]').forEach(item => item.classList.toggle('active', item.dataset.explorerNav === analysisId));
+  const group = els('explorerNavGroup');
+  if (group) group.classList.add('open');
+  els('currentPageLabel').textContent = 'Explorers - ' + EXPLORER_ANALYSES[analysisId];
+  if (persist) {
+    try {
+      localStorage.setItem(EXPLORER_ANALYSIS_KEY, analysisId);
+      localStorage.setItem(ACTIVE_PAGE_KEY, 'explorers');
+    } catch (e) { /* storage unavailable, ignore */ }
+  }
+  const analysisHash = '#explorers/' + encodeURIComponent(analysisId);
+  if (location.hash !== analysisHash) {
+    try { history.replaceState(null, '', analysisHash); } catch (e) { /* URL marker is optional */ }
+  }
+  if (scrollToSection && target) {
+    setTimeout(() => {
+      target.scrollIntoView({ behavior:'smooth', block:'start' });
+      window.dispatchEvent(new Event('resize'));
+    }, 30);
+  } else {
+    window.dispatchEvent(new Event('resize'));
+  }
+}
+function showExplorerAnalysis(analysisId) {
+  if (!isKnownExplorerAnalysis(analysisId)) return;
+  const alreadyOnExplorers = document.querySelector('.page.active')?.dataset.page === 'explorers';
+  if (!alreadyOnExplorers) showPage('explorers');
+  activateExplorerAnalysis(analysisId, true, true);
+  closeMenu();
 }
 
 function isKnownPage(pageId) {
@@ -4959,12 +5049,13 @@ function activatePageShell(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
   els('currentPageLabel').textContent = PAGE_LABELS[pageId] || pageId;
+  if (els('explorerNavGroup')) els('explorerNavGroup').classList.toggle('open', pageId === 'explorers');
   return pageId;
 }
 
 function readInitialPage() {
   let pageId = '';
-  try { pageId = decodeURIComponent(location.hash.slice(1)); } catch (e) { pageId = ''; }
+  try { pageId = decodeURIComponent(location.hash.slice(1)).split('/')[0]; } catch (e) { pageId = ''; }
   if (!isKnownPage(pageId)) {
     try { pageId = localStorage.getItem(ACTIVE_PAGE_KEY) || ''; } catch (e) { pageId = ''; }
   }
@@ -5530,7 +5621,7 @@ function saveState(includePortableData = false) {
   // its own localStorage keys; copying the entire register (especially receipt images) into this main
   // state blob on every edit can exceed the browser quota and make ALL planner saves fail. The portable
   // copy is included only when explicitly downloading a JSON backup.
-  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, allocationExplorerStrategy, sharedNotesText, checkpointBaseline, checkpointHistory };
+  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, allocationExplorerStrategy, selectedExplorerAnalysis, sharedNotesText, checkpointBaseline, checkpointHistory };
   // Persist the compact version first. The potentially large portable Accounts & Cards copy is added
   // only to the object returned to Download Backup and is never duplicated into localStorage.
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
@@ -5554,6 +5645,7 @@ function applyState(state) {
   if (typeof state.excessIncomeDestinationPieName === 'string') excessIncomeDestinationPieName = state.excessIncomeDestinationPieName;
   if (typeof state.rothConversionSourceName === 'string') rothConversionSourceName = state.rothConversionSourceName;
   if (typeof state.allocationExplorerStrategy === 'string') allocationExplorerStrategy = state.allocationExplorerStrategy;
+  if (isKnownExplorerAnalysis(state.selectedExplorerAnalysis)) selectedExplorerAnalysis = state.selectedExplorerAnalysis;
   // Deliberately NOT syncing state.sharedNotesText here. This function runs on every normal boot (via
   // loadState()), and the copy of sharedNotesText baked into this state blob is only as fresh as the
   // last time saveState() happened to run for some unrelated field — notes themselves persist through
@@ -10940,7 +11032,7 @@ window.addEventListener('afterprint', restoreApiKeyAfterPrint);
 
 function resetAllData() {
   if (!confirm('This clears everything saved in this browser and reloads the page with defaults. Continue?')) return;
-  try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(ACTIVE_PAGE_KEY); localStorage.removeItem(DOLLAR_VIEW_KEY); localStorage.removeItem(SPENDING_BASIS_KEY); localStorage.removeItem(JOB_LOSS_DATE_KEY); localStorage.removeItem(LAST_BACKUP_KEY); localStorage.removeItem(BACKUP_REMINDER_DISMISSED_KEY); localStorage.removeItem(SHARED_NOTES_KEY); } catch (e) {}
+  try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(ACTIVE_PAGE_KEY); localStorage.removeItem(EXPLORER_ANALYSIS_KEY); localStorage.removeItem(DOLLAR_VIEW_KEY); localStorage.removeItem(SPENDING_BASIS_KEY); localStorage.removeItem(JOB_LOSS_DATE_KEY); localStorage.removeItem(LAST_BACKUP_KEY); localStorage.removeItem(BACKUP_REMINDER_DISMISSED_KEY); localStorage.removeItem(SHARED_NOTES_KEY); } catch (e) {}
   location.reload();
 }
 
@@ -11651,6 +11743,7 @@ try {
 // happened after render(); if any optional chart/library failed during startup, execution stopped first
 // and the still-active Dashboard was left on screen even though the correct section had been saved.
 const initialPageAtBoot = readInitialPage();
+const initialExplorerAnalysisAtBoot = readInitialExplorerAnalysis();
 if (initialPageAtBoot) activatePageShell(initialPageAtBoot);
 
 renderExpenseRows();
@@ -11698,7 +11791,9 @@ function persistBeforeLeaving() {
   try {
     if (activePage && activePage.dataset.page) {
       localStorage.setItem(ACTIVE_PAGE_KEY, activePage.dataset.page);
-      const pageHash = '#' + encodeURIComponent(activePage.dataset.page);
+      const pageHash = activePage.dataset.page === 'explorers' && isKnownExplorerAnalysis(selectedExplorerAnalysis)
+        ? '#explorers/' + encodeURIComponent(selectedExplorerAnalysis)
+        : '#' + encodeURIComponent(activePage.dataset.page);
       if (location.hash !== pageHash) history.replaceState(null, '', pageHash);
     }
   } catch (e) { /* storage unavailable, ignore */ }
@@ -11724,12 +11819,17 @@ render();
 // Finish any page-specific setup after the main render. The section itself was already activated above,
 // so it remains correct even if an unrelated startup calculation fails before this point.
 if (initialPageAtBoot) showPage(initialPageAtBoot);
+if (initialPageAtBoot === 'explorers') activateExplorerAnalysis(initialExplorerAnalysisAtBoot, true, false);
 
 // Browser Back/Forward can change only the section marker; keep the visible page in step with it.
 window.addEventListener('hashchange', () => {
-  let pageId = '';
-  try { pageId = decodeURIComponent(location.hash.slice(1)); } catch (e) { return; }
-  if (isKnownPage(pageId)) showPage(pageId);
+  let parts = [];
+  try { parts = decodeURIComponent(location.hash.slice(1)).split('/'); } catch (e) { return; }
+  const pageId = parts[0];
+  if (!isKnownPage(pageId)) return;
+  showPage(pageId, false);
+  try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
+  if (pageId === 'explorers') activateExplorerAnalysis(parts[1] || readInitialExplorerAnalysis(), true, true);
 });
 </script>
 </body>
