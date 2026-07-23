@@ -722,14 +722,14 @@
     <button class="hamburger-btn" onclick="toggleMenu()" aria-label="Open menu">☰</button>
     <div class="header-titles">
       <h1>Michael &amp; Cynthia's Retirement</h1>
-      <p>Tap the menu to jump to a section. <span class="current-page-label" id="currentPageLabel">Dashboard</span></p>
+      <p>Tap the menu to jump to a section. <span class="current-page-label" id="currentPageLabel">Overview</span></p>
     </div>
     <div class="header-toggle-group">
       <div class="dollar-toggle" id="dollarToggle">
         <span class="dollar-toggle-btn" data-mode="real" onclick="setDollarView('real')">Today's $</span>
         <span class="dollar-toggle-btn active" data-mode="nominal" onclick="setDollarView('nominal')">Future $</span>
       </div>
-      <div class="dollar-toggle" id="spendingBasisToggle" title="Which expense column (Expenses page) drives the whole projection, guardrails, and Monte Carlo — the % next to each option is that option's own Monte Carlo confidence score, computed the same way as the Dashboard's, so you can compare all three without switching">
+      <div class="dollar-toggle" id="spendingBasisToggle" title="Which expense column (Expenses page) drives the whole projection, guardrails, and Monte Carlo — the % next to each option is that option's own Monte Carlo confidence score, computed the same way as the Overview's, so you can compare all three without switching">
         <span class="dollar-toggle-btn spending-basis-toggle-btn" data-mode="jobloss" onclick="setSpendingBasis('jobloss')"><span class="mc-mini-score" id="mcMiniJobloss"></span><span>Job Loss</span><span class="mc-mini-longevity" id="mcMiniLongevityJobloss" title="Ending net worth if your spouse lives to their life expectancy, projected under this basis"></span></span>
         <span class="dollar-toggle-btn spending-basis-toggle-btn" data-mode="mustspend" onclick="setSpendingBasis('mustspend')"><span class="mc-mini-score" id="mcMiniMustspend"></span><span>Must Spend</span><span class="mc-mini-longevity" id="mcMiniLongevityMustspend" title="Ending net worth if your spouse lives to their life expectancy, projected under this basis"></span></span>
         <span class="dollar-toggle-btn spending-basis-toggle-btn active" data-mode="liketo" onclick="setSpendingBasis('liketo')"><span class="mc-mini-score" id="mcMiniLiketo"></span><span>Like to Spend</span><span class="mc-mini-longevity" id="mcMiniLongevityLiketo" title="Ending net worth if your spouse lives to their life expectancy, projected under this basis"></span></span>
@@ -749,6 +749,7 @@
     <span>Sections</span>
     <button class="sidenav-close" onclick="closeMenu()" aria-label="Close menu">×</button>
   </div>
+  <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">Overview</div>
   <div class="nav-dropdown" id="myPlanNavGroup">
     <button type="button" class="nav-item nav-dropdown-toggle" id="myPlanNavToggle" onclick="toggleMyPlanMenu(event)"><span>My Plan</span><span class="nav-caret">&#9662;</span></button>
     <div class="nav-submenu" id="myPlanSubmenu">
@@ -767,7 +768,6 @@
   </div>
   <div class="nav-item" data-page="vault" onclick="showPage('vault')">Document Vault</div>
   <div class="nav-item" data-page="coach" onclick="showPage('coach')">Coach</div>
-  <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</div>
   <div class="nav-item" data-page="accounts" onclick="showPage('accounts')">Accounts &amp; Cards</div>
   <div class="nav-dropdown" id="insightsNavGroup">
     <button type="button" class="nav-item nav-dropdown-toggle" id="insightsNavToggle" onclick="toggleInsightsMenu(event)"><span>Insights</span><span class="nav-caret">&#9662;</span></button>
@@ -808,7 +808,7 @@
       </div>
 
       <div class="page-header">
-        <h2>Dashboard</h2>
+        <h2>Overview</h2>
         <p>The full picture, pulled from every section.</p>
       </div>
 
@@ -1913,7 +1913,7 @@
         </div>
       </div>
 
-      <div class="note">Each scenario re-runs your full plan with one change applied (or, for market risk, a specific sequence of returns/inflation pinned in). "Confidence Score" is a 1000-simulation Monte Carlo success rate for that scenario alone — the same simulation count as your baseline score on the Dashboard, so every number on this page is directly comparable. The Sensitivity Analysis and Social Security Claiming Age cards use fewer/more simulations respectively (see each card), which is why they run on demand instead of automatically. The Historical Backtest isn't Monte Carlo at all — each bar is a single deterministic run using one real historical sequence of market returns, not a simulated one.</div>
+      <div class="note">Each scenario re-runs your full plan with one change applied (or, for market risk, a specific sequence of returns/inflation pinned in). "Confidence Score" is a 1000-simulation Monte Carlo success rate for that scenario alone — the same simulation count as your baseline score on the Overview, so every number on this page is directly comparable. The Sensitivity Analysis and Social Security Claiming Age cards use fewer/more simulations respectively (see each card), which is why they run on demand instead of automatically. The Historical Backtest isn't Monte Carlo at all — each bar is a single deterministic run using one real historical sequence of market returns, not a simulated one.</div>
     </div>
 
     <!-- ================= COACH ================= -->
@@ -4967,7 +4967,7 @@ function setJobLossDate(value) {
   render();
 }
 const PAGE_LABELS = {
-  dashboard:'Dashboard', personal:'Personal & Family', income:'Income', survivorship:'Survivorship', moneyflows:'Money Flows',
+  dashboard:'Overview', personal:'Personal & Family', income:'Income', survivorship:'Survivorship', moneyflows:'Money Flows',
   investments:'Investments', accounts:'Accounts & Cards', housing:'Housing', expenses:'Expenses', incomeexpenses:'Income vs Expenses', debt:'Debt',
   gap:'Income Gap & Withdrawals', medical:'Medical', estate:'Estate Planning', vault:'Document Vault', insurance:'Insurance',
   taxes:'Taxes', assumptions:'Assumptions & Guardrails',
@@ -4985,12 +4985,17 @@ const EXPLORER_ANALYSES = {
 let selectedExplorerAnalysis = 'whatif';
 
 function toggleMenu() {
+  collapseNavDropdowns();
   els('sidenav').classList.toggle('open');
   els('navOverlay').classList.toggle('open');
 }
 function closeMenu() {
   els('sidenav').classList.remove('open');
   els('navOverlay').classList.remove('open');
+  collapseNavDropdowns();
+}
+function collapseNavDropdowns() {
+  document.querySelectorAll('#sidenav .nav-dropdown.open').forEach(group => group.classList.remove('open'));
 }
 
 function toggleMyPlanMenu(event) {
@@ -5041,8 +5046,6 @@ function activateExplorerAnalysis(analysisId, scrollToSection = true, persist = 
   const target = page.querySelector(`[data-explorer-analysis="${analysisId}"]`);
   if (target) { target.classList.remove('collapsed'); target.classList.remove('explorer-analysis-hidden'); }
   document.querySelectorAll('.nav-subitem[data-explorer-nav]').forEach(item => item.classList.toggle('active', item.dataset.explorerNav === analysisId));
-  const group = els('explorerNavGroup');
-  if (group) group.classList.add('open');
   els('currentPageLabel').textContent = 'Explorers - ' + EXPLORER_ANALYSES[analysisId];
   if (persist) {
     try {
@@ -5083,11 +5086,9 @@ function activatePageShell(pageId) {
   els('currentPageLabel').textContent = PAGE_LABELS[pageId] || pageId;
   const inMyPlan = MY_PLAN_PAGES.includes(pageId);
   const inInsights = INSIGHTS_PAGES.includes(pageId);
-  if (els('myPlanNavGroup')) els('myPlanNavGroup').classList.toggle('open', inMyPlan);
+  collapseNavDropdowns();
   if (els('myPlanNavToggle')) els('myPlanNavToggle').classList.toggle('active', inMyPlan);
-  if (els('insightsNavGroup')) els('insightsNavGroup').classList.toggle('open', inInsights);
   if (els('insightsNavToggle')) els('insightsNavToggle').classList.toggle('active', inInsights);
-  if (els('explorerNavGroup')) els('explorerNavGroup').classList.toggle('open', pageId === 'explorers');
   return pageId;
 }
 
@@ -7977,7 +7978,7 @@ function renderMonteCarloAssumptions(inputs, ctx) {
     Returns during retirement: <b>${(inputs.postReturn*100).toFixed(1)}%</b> average / <b>${(inputs.postStdev*100).toFixed(1)}%</b> volatility<br>
     Return distribution: <b>${inputs.enhancedMonteCarlo ? 'Fat-tailed mixture (enhanced)' : 'Normal distribution'}</b><br>
     General inflation: <b>${(inputs.inflation*100).toFixed(1)}%</b>; medical inflation: <b>${(inputs.medicalInflation*100).toFixed(1)}%</b><br>
-    Primary score: <b>${inputs.enhancedMonteCarlo ? 'enhanced conservative fat-tailed returns' : 'standard normal returns'}</b>; Dashboard also shows a normal-distribution comparison score.<br>
+    Primary score: <b>${inputs.enhancedMonteCarlo ? 'enhanced conservative fat-tailed returns' : 'standard normal returns'}</b>; Overview also shows a normal-distribution comparison score.<br>
     Success means every modeled expense is funded after all eligible accessible household accounts are considered.`;
 }
 
