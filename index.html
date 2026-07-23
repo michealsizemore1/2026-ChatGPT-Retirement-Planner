@@ -369,6 +369,25 @@
   .market-explorer-headline{font-size:18px; font-weight:700; color:var(--navy); margin:14px 0 4px;}
   .market-explorer-detail{font-size:15.5px; color:var(--muted); margin-bottom:10px;}
 
+  /* Allocation Explorer: five life-stage strategies, comparison tiles, and responsive charts. */
+  .allocation-strategy-grid{display:grid; grid-template-columns:repeat(5,minmax(150px,1fr)); gap:10px; margin:14px 0 18px;}
+  .allocation-strategy{border:1px solid var(--border); border-radius:10px; background:var(--card); padding:14px; cursor:pointer; min-height:112px; color:var(--navy); font:inherit; text-align:left; width:100%;}
+  .allocation-strategy:hover{border-color:var(--teal);}
+  .allocation-strategy.selected{border:2px solid var(--teal); background:var(--teal-light); padding:13px;}
+  .allocation-strategy-name{font-size:16px; font-weight:750; line-height:1.25; margin-bottom:7px;}
+  .allocation-strategy-detail{font-size:14px; color:var(--muted); line-height:1.35;}
+  .allocation-selected-label{display:inline-block; margin-top:8px; padding:2px 7px; border-radius:10px; background:var(--teal); color:#fff; font-size:12px; font-weight:700;}
+  .allocation-outcome-grid{display:grid; grid-template-columns:repeat(3,minmax(180px,1fr)); gap:12px; margin:14px 0 18px;}
+  .allocation-outcome{border:1px solid var(--border); border-radius:10px; background:#fbfcfc; padding:14px 16px;}
+  .allocation-outcome .allocation-label{font-size:14.5px; color:var(--muted); margin-bottom:8px;}
+  .allocation-outcome .allocation-model-value{font-size:25px; font-weight:800; color:var(--teal);}
+  .allocation-outcome .allocation-current-value{font-size:14.5px; color:var(--muted); margin-top:4px;}
+  .allocation-chart-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;}
+  .allocation-chart-grid .mini-chart-card{min-height:330px;}
+  .allocation-chart-grid canvas{min-height:250px;}
+  @media (max-width:900px){.allocation-strategy-grid{grid-template-columns:repeat(2,minmax(150px,1fr));}.allocation-chart-grid{grid-template-columns:1fr;}}
+  @media (max-width:560px){.allocation-strategy-grid,.allocation-outcome-grid{grid-template-columns:1fr;}}
+
   .score-card{
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     padding:20px 22px; margin-bottom:14px; display:flex; align-items:center; gap:22px; flex-wrap:wrap;
@@ -1762,6 +1781,25 @@
         <div class="mini-label" style="margin:16px 0 8px;">My Savings Projection</div>
         <div class="mini-chart-card"><canvas id="chart_market_explorer"></canvas><div class="chart-range-nav" data-chart="market_explorer"><button class="range-nav-btn range-prev" onclick="chartRangeNav('market_explorer','prev')">« <span class="range-nav-label">Age</span></button><button class="range-nav-btn lifetime active" onclick="chartRangeNav('market_explorer','lifetime')">Lifetime</button><button class="range-nav-btn range-next" onclick="chartRangeNav('market_explorer','next')"><span class="range-nav-label">Age</span> »</button></div><div class="range-readout" data-chart="market_explorer"></div></div>
         <p style="font-size:15.5px;color:var(--muted);margin:0;">"Savings" here is your investable balance plus cash (TSP, brokerage, checking/savings/HYSA) — it doesn't include home equity.</p>
+      </div>
+
+      <div class="card">
+        <h3 onclick="toggleCard(this)">Allocation Explorer<span class="sub-label">Compare a life-stage allocation against your current plan</span></h3>
+        <p style="margin:0 0 12px;font-size:16.5px;color:var(--muted);line-height:1.55;">Explore how a portfolio that gradually becomes more protective around retirement could affect your plan. Choose any strategy below. This is comparison-only: it does not change your actual TSP, brokerage pies, assumptions, or baseline Monte Carlo score.</p>
+        <div class="info-banner"><span>Educational model only - not investment advice. The model applies to market-linked TSP and brokerage balances; your cash-like Sequence of Returns Risk pie keeps its own fixed rate.</span></div>
+        <div class="mini-label">Choose a Strategy</div>
+        <div class="allocation-strategy-grid" id="allocationStrategyGrid"></div>
+        <div id="allocationExplorerStatus" style="font-size:15px;color:var(--muted);margin-bottom:8px;"></div>
+        <div class="allocation-outcome-grid" id="allocationExplorerOutcomes"></div>
+        <div class="allocation-chart-grid">
+          <div><div class="mini-label" style="margin-bottom:8px;">Modeled Allocation Over Time</div><div class="mini-chart-card"><canvas id="chart_allocation_mix"></canvas></div></div>
+          <div><div class="mini-label" style="margin-bottom:8px;">Savings: Current Plan vs. Strategy</div><div class="mini-chart-card"><canvas id="chart_allocation_savings"></canvas></div></div>
+        </div>
+        <details>
+          <summary>Allocation, return, and volatility assumptions</summary>
+          <div id="allocationExplorerTechnical"></div>
+        </details>
+        <div class="note">The five strategy profiles and their forward-looking return/volatility assumptions follow Boldin's published Allocation Explorer beta methodology as of July 2026. The result is an estimate, not a recommendation or guarantee.</div>
       </div>
 
       <div class="card">
@@ -5376,6 +5414,7 @@ function updateLtcCareType(type) {
 // ---------- Persistence (localStorage) so values survive a page refresh ----------
 const STORAGE_KEY = 'retirementPlannerState_v1';
 const ACTIVE_PAGE_KEY = 'retirementPlannerActivePage_v1';
+let allocationExplorerStrategy = 'moderate';
 // Backup reminder: since this tool is a single offline HTML file with no server, everything you enter
 // only ever lives in this one browser's localStorage unless you explicitly download a JSON backup — a
 // browser data wipe, a new device, or even just clearing site data loses it all silently. LAST_BACKUP_KEY
@@ -5490,7 +5529,7 @@ function saveState(includePortableData = false) {
   // its own localStorage keys; copying the entire register (especially receipt images) into this main
   // state blob on every edit can exceed the browser quota and make ALL planner saves fail. The portable
   // copy is included only when explicitly downloading a JSON backup.
-  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, sharedNotesText, checkpointBaseline, checkpointHistory };
+  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, allocationExplorerStrategy, sharedNotesText, checkpointBaseline, checkpointHistory };
   // Persist the compact version first. The potentially large portable Accounts & Cards copy is added
   // only to the object returned to Download Backup and is never duplicated into localStorage.
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
@@ -5513,6 +5552,7 @@ function applyState(state) {
   if (state.withdrawalProportions && typeof state.withdrawalProportions === 'object') withdrawalProportions = { ...state.withdrawalProportions };
   if (typeof state.excessIncomeDestinationPieName === 'string') excessIncomeDestinationPieName = state.excessIncomeDestinationPieName;
   if (typeof state.rothConversionSourceName === 'string') rothConversionSourceName = state.rothConversionSourceName;
+  if (typeof state.allocationExplorerStrategy === 'string') allocationExplorerStrategy = state.allocationExplorerStrategy;
   // Deliberately NOT syncing state.sharedNotesText here. This function runs on every normal boot (via
   // loadState()), and the copy of sharedNotesText baked into this state blob is only as fresh as the
   // last time saveState() happened to run for some unrelated field — notes themselves persist through
@@ -6749,6 +6789,11 @@ function projectRun(inputs, ctx, randomize, shocks) {
 
   for (let age = inputs.currentAge; age <= ctx.effectiveLifeExpectancy; age++) {
     const y = age - inputs.currentAge;
+    // Allocation Explorer scenarios can supply a life-stage model. Only those comparison runs use
+    // the changing mean/volatility; the real plan continues to use its normal pre/post assumptions.
+    const allocationPointThisYear = inputs.allocationExplorerStrategy
+      ? allocationPointForAge(inputs.allocationExplorerStrategy, age, inputs.retirementAge)
+      : null;
     // Income and spending are projected in nominal dollars, so annually indexed federal figures must
     // rise as well. Social Security provisional-income thresholds remain fixed by statute separately.
     const taxThresholdInflator = Math.pow(1 + inputs.inflation, y);
@@ -7075,8 +7120,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
     const expTotalsThisYear = ctx.expensesForYear(age);
 
     if (age < inputs.retirementAge) {
+      const preMean = allocationPointThisYear ? allocationPointThisYear.expectedReturn : inputs.preReturn;
+      const preVolatility = allocationPointThisYear ? allocationPointThisYear.volatility : inputs.preStdev;
       const preR = (shocks.pre && shocks.pre[y] !== undefined) ? shocks.pre[y]
-        : (randomize ? randMarketReturn(inputs.preReturn, inputs.preStdev, inputs.enhancedMonteCarlo) : inputs.preReturn);
+        : (randomize ? randMarketReturn(preMean, preVolatility, inputs.enhancedMonteCarlo) : preMean);
       if (y > 0) income *= (1+inputs.incomeGrowth);
       // Job Loss test: once active, the paycheck is gone for good — zeroing it here (rather than just
       // skipping this year's raise) means every dollar figure derived from income below (FICA, TSP/match
@@ -7237,8 +7284,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
         cashAtRetirement = balChecking + balSavings + balHYSA;
       }
       const yearsSinceRetirement = age - inputs.retirementAge;
+      const postMean = allocationPointThisYear ? allocationPointThisYear.expectedReturn : inputs.postReturn;
+      const postVolatility = allocationPointThisYear ? allocationPointThisYear.volatility : inputs.postStdev;
       const postR = (shocks.post && shocks.post[yearsSinceRetirement] !== undefined) ? shocks.post[yearsSinceRetirement]
-        : (randomize ? randMarketReturn(inputs.postReturn, inputs.postStdev, inputs.enhancedMonteCarlo) : inputs.postReturn);
+        : (randomize ? randMarketReturn(postMean, postVolatility, inputs.enhancedMonteCarlo) : postMean);
       const spendMult = inputs.spendingMultiplier || 1;
       // Survivorship what-if (Explorers page only, gated on inputs.survivorshipEnabled which the main plan never sets):
       // once past the assumed age the primary member predeceases the spouse, pension(s)/VA disability/spousal SS stop
@@ -9758,12 +9807,180 @@ function refreshSectionCharts(pageId, snap) {
   ensureOrUpdatePieChart(pageId, snap);
 }
 
+// ---------- Allocation Explorer: life-stage allocation comparison ----------
+const ALLOCATION_STAGE_INFO = [
+  { key:'accumulation', label:'Accumulation', when:'20+ years before retirement' },
+  { key:'build', label:'Build', when:'10-19 years before retirement' },
+  { key:'transition', label:'Transition', when:'5-9 years before retirement' },
+  { key:'retirement', label:'Retirement Zone', when:'5 years before through 5 years after' },
+  { key:'distribution', label:'Distribution', when:'5+ years after retirement' }
+];
+const ALLOCATION_MODELS = {
+  conservative: {
+    name:'Conservative', short:'Highest stability', description:'Capital preservation with the largest fixed-income and cash cushion.',
+    equity:[70,65,60,30,30], cash:[1,2,4,12,16], returns:[6.51,6.31,6.12,5.00,4.98], volatility:[11.29,10.61,9.92,6.27,6.02]
+  },
+  moderately_conservative: {
+    name:'Moderately Conservative', short:'Stability first', description:'More stability while retaining measured long-term growth.',
+    equity:[75,70,65,40,40], cash:[1,2,4,10,14], returns:[6.69,6.50,6.31,5.37,5.36], volatility:[11.90,11.22,10.53,7.40,7.21]
+  },
+  moderate: {
+    name:'Moderate', short:'Balanced', description:'Balances growth and stability with a pronounced retirement-zone shift.',
+    equity:[80,75,70,50,50], cash:[1,2,4,8,12], returns:[6.87,6.68,6.49,5.74,5.73], volatility:[12.52,11.84,11.15,8.60,8.46]
+  },
+  moderately_aggressive: {
+    name:'Moderately Aggressive', short:'Growth leaning', description:'Strong equity exposure with a meaningful retirement buffer.',
+    equity:[85,80,75,60,60], cash:[1,2,4,6,10], returns:[7.05,6.86,6.67,6.11,6.10], volatility:[13.14,12.46,11.77,9.84,9.74]
+  },
+  aggressive: {
+    name:'Aggressive', short:'Highest growth', description:'The most equity exposure and the widest expected annual swings.',
+    equity:[90,85,80,70,70], cash:[1,2,4,4,8], returns:[7.23,7.05,6.86,6.48,6.48], volatility:[13.77,13.09,12.40,11.11,11.04]
+  }
+};
+
+function allocationLerp(a, b, t) { return a + (b-a) * Math.max(0, Math.min(1, t)); }
+function allocationStageForAge(age, retirementAge) {
+  const yearsToRetirement = retirementAge - age;
+  if (yearsToRetirement >= 20) return 0;
+  if (yearsToRetirement >= 10) return 1;
+  if (yearsToRetirement > 5) return 2;
+  if (yearsToRetirement >= -5) return 3;
+  return 4;
+}
+function allocationPointForAge(strategyKey, age, retirementAge) {
+  const model = ALLOCATION_MODELS[strategyKey] || ALLOCATION_MODELS.moderate;
+  const d = retirementAge - age;
+  let from = 0, to = 0, t = 0;
+  if (d >= 20) { from = to = 0; }
+  else if (d >= 10) { from = 0; to = 1; t = (20-d)/10; }
+  else if (d >= 5) { from = 1; to = 2; t = (10-d)/5; }
+  else if (d >= 0) { from = 2; to = 3; t = (5-d)/5; }
+  else if (d >= -5) { from = 3; to = 4; t = (-d)/5; }
+  else { from = to = 4; }
+  const equity = allocationLerp(model.equity[from], model.equity[to], t);
+  const cash = allocationLerp(model.cash[from], model.cash[to], t);
+  return {
+    age, stage:ALLOCATION_STAGE_INFO[allocationStageForAge(age, retirementAge)].label,
+    equity, cash, fixedIncome:Math.max(0, 100-equity-cash),
+    expectedReturn:allocationLerp(model.returns[from], model.returns[to], t)/100,
+    volatility:allocationLerp(model.volatility[from], model.volatility[to], t)/100
+  };
+}
+
+let allocationExplorerCache = null;
+let allocationExplorerCacheKey = '';
+function allocationExplorerSignature(inputs) {
+  return JSON.stringify({ strategy:allocationExplorerStrategy, spendingBasis, inputs, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies });
+}
+function selectAllocationStrategy(key) {
+  if (!ALLOCATION_MODELS[key]) return;
+  allocationExplorerStrategy = key;
+  allocationExplorerCache = null;
+  allocationExplorerCacheKey = '';
+  saveState();
+  renderAllocationStrategyCards();
+  const status = els('allocationExplorerStatus');
+  if (status) status.textContent = 'Calculating the full-plan comparison...';
+  setTimeout(() => {
+    const inputs = readInputs();
+    renderAllocationExplorer(inputs, buildContext(inputs));
+  }, 20);
+}
+function renderAllocationStrategyCards() {
+  const grid = els('allocationStrategyGrid');
+  if (!grid) return;
+  if (!ALLOCATION_MODELS[allocationExplorerStrategy]) allocationExplorerStrategy = 'moderate';
+  grid.innerHTML = Object.entries(ALLOCATION_MODELS).map(([key, model]) => `
+    <button type="button" class="allocation-strategy ${allocationExplorerStrategy===key?'selected':''}" onclick="selectAllocationStrategy('${key}')">
+      <div class="allocation-strategy-name">${model.name}</div>
+      <div class="allocation-strategy-detail">${model.short}<br>${model.description}</div>
+      ${allocationExplorerStrategy===key?'<span class="allocation-selected-label">Selected</span>':''}
+    </button>`).join('');
+}
+function getAllocationExplorerResults(inputs, ctx) {
+  const signature = allocationExplorerSignature(inputs);
+  if (allocationExplorerCache && allocationExplorerCacheKey === signature) return allocationExplorerCache;
+  const current = runComparisonEntry('Current Plan', inputs, ctx);
+  const modelInputs = { ...inputs, allocationExplorerStrategy };
+  const model = runComparisonEntry(ALLOCATION_MODELS[allocationExplorerStrategy].name, modelInputs, ctx);
+  allocationExplorerCacheKey = signature;
+  allocationExplorerCache = { current, model, modelInputs };
+  return allocationExplorerCache;
+}
+function allocationRetirementMarkerPlugin() {
+  return {
+    id:'allocationRetirementMarker',
+    afterDraw(chart, args, opts) {
+      if (!chart.scales.x || opts.age == null) return;
+      const x = chart.scales.x.getPixelForValue(opts.age);
+      const area = chart.chartArea;
+      chart.ctx.save();
+      chart.ctx.strokeStyle = '#7b8794'; chart.ctx.setLineDash([5,4]); chart.ctx.lineWidth = 1.25;
+      chart.ctx.beginPath(); chart.ctx.moveTo(x, area.top); chart.ctx.lineTo(x, area.bottom); chart.ctx.stroke();
+      chart.ctx.fillStyle = '#66717e'; chart.ctx.font = '12px Arial'; chart.ctx.fillText('Retirement', Math.min(x+5, area.right-64), area.top+13);
+      chart.ctx.restore();
+    }
+  };
+}
+function renderAllocationExplorer(inputs, ctx) {
+  if (!els('allocationStrategyGrid')) return;
+  renderAllocationStrategyCards();
+  const modelDef = ALLOCATION_MODELS[allocationExplorerStrategy] || ALLOCATION_MODELS.moderate;
+  const results = getAllocationExplorerResults(inputs, ctx);
+  const currentPoint = allocationPointForAge(allocationExplorerStrategy, inputs.currentAge, inputs.retirementAge);
+  const status = els('allocationExplorerStatus');
+  if (status) status.innerHTML = `<b>${modelDef.name}</b> starts your current age in the <b>${currentPoint.stage}</b> stage: ${currentPoint.equity.toFixed(0)}% equity, ${currentPoint.fixedIncome.toFixed(0)}% fixed income, and ${currentPoint.cash.toFixed(0)}% cash.`;
+
+  const current = results.current, modeled = results.model;
+  const outcomes = els('allocationExplorerOutcomes');
+  if (outcomes) outcomes.innerHTML = [
+    ['Monte Carlo Confidence', Math.round(modeled.score)+'%', Math.round(current.score)+'%'],
+    ['Ending Investable Savings', fmtMoney(dv(modeled.endingBalance, modeled.endAge, inputs)), fmtMoney(dv(current.endingBalance, current.endAge, inputs))],
+    ['Ending Estate / Net Worth', fmtMoney(dv(modeled.endingNetWorth, modeled.endAge, inputs)), fmtMoney(dv(current.endingNetWorth, current.endAge, inputs))]
+  ].map(v => `<div class="allocation-outcome"><div class="allocation-label">${v[0]}</div><div class="allocation-model-value">${v[1]}</div><div class="allocation-current-value">Current plan: ${v[2]}</div></div>`).join('');
+
+  const ages = [];
+  for (let age=inputs.currentAge; age<=ctx.effectiveLifeExpectancy; age++) ages.push(age);
+  const points = ages.map(age => allocationPointForAge(allocationExplorerStrategy, age, inputs.retirementAge));
+  const mixData = {
+    datasets:[
+      {label:'Equity',data:points.map(p=>({x:p.age,y:p.equity})),borderColor:'#1f7a6c',backgroundColor:'rgba(31,122,108,.50)',pointRadius:0,fill:true,stack:'mix',tension:.25},
+      {label:'Fixed income',data:points.map(p=>({x:p.age,y:p.fixedIncome})),borderColor:'#4f78b8',backgroundColor:'rgba(79,120,184,.42)',pointRadius:0,fill:true,stack:'mix',tension:.25},
+      {label:'Cash',data:points.map(p=>({x:p.age,y:p.cash})),borderColor:'#d6a84b',backgroundColor:'rgba(214,168,75,.55)',pointRadius:0,fill:true,stack:'mix',tension:.25}
+    ]
+  };
+  const mixOptions = {responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},allocationRetirementMarker:{age:inputs.retirementAge},tooltip:{callbacks:{title:items=>`Age ${items[0].parsed.x} - ${points[items[0].dataIndex].stage}`,label:item=>`${item.dataset.label}: ${item.parsed.y.toFixed(1)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Age'},ticks:{stepSize:5}},y:{stacked:true,min:0,max:100,title:{display:true,text:'Allocation'},ticks:{callback:v=>v+'%'}}}};
+  const mixCanvas = els('chart_allocation_mix');
+  if (mixCanvas) {
+    if (charts.explorers_allocation_mix) { charts.explorers_allocation_mix.data=mixData; charts.explorers_allocation_mix.options=mixOptions; charts.explorers_allocation_mix.update(); }
+    else charts.explorers_allocation_mix = new Chart(mixCanvas.getContext('2d'), {type:'line',data:mixData,options:mixOptions,plugins:[allocationRetirementMarkerPlugin()]});
+  }
+
+  const savingsData = {datasets:[
+    {label:'Current Plan',data:current.rows.map(r=>({x:r.age,y:dv(r.investable,r.age,inputs)})),borderColor:'#66717e',borderWidth:2,pointRadius:0,tension:.2},
+    {label:modelDef.name,data:modeled.rows.map(r=>({x:r.age,y:dv(r.investable,r.age,inputs)})),borderColor:'#1f7a6c',backgroundColor:'rgba(31,122,108,.08)',borderWidth:2.5,pointRadius:0,tension:.2,fill:true}
+  ]};
+  const savingsOptions = {responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},allocationRetirementMarker:{age:inputs.retirementAge},tooltip:{callbacks:{title:items=>'Age '+items[0].parsed.x,label:item=>item.dataset.label+': '+fmtMoney(item.parsed.y)}}},scales:{x:{type:'linear',title:{display:true,text:'Age'},ticks:{stepSize:5}},y:{title:{display:true,text:dollarView==='real'?"Today's dollars":'Future dollars'},ticks:{callback:v=>fmtMoneyK(v)}}}};
+  const savingsCanvas = els('chart_allocation_savings');
+  if (savingsCanvas) {
+    if (charts.explorers_allocation_savings) { charts.explorers_allocation_savings.data=savingsData; charts.explorers_allocation_savings.options=savingsOptions; charts.explorers_allocation_savings.update(); }
+    else charts.explorers_allocation_savings = new Chart(savingsCanvas.getContext('2d'), {type:'line',data:savingsData,options:savingsOptions,plugins:[allocationRetirementMarkerPlugin()]});
+  }
+
+  const technical = els('allocationExplorerTechnical');
+  if (technical) technical.innerHTML = `<div class="table-scroll"><table style="min-width:760px"><thead><tr><th>Life Stage</th><th>When</th><th>Equity</th><th>Fixed Income</th><th>Cash</th><th>Expected Return</th><th>Volatility</th></tr></thead><tbody>${ALLOCATION_STAGE_INFO.map((s,i)=>{
+    const fixed=Math.max(0,100-modelDef.equity[i]-modelDef.cash[i]);
+    return `<tr><td>${s.label}</td><td>${s.when}</td><td>${modelDef.equity[i]}%</td><td>${fixed}%</td><td>${modelDef.cash[i]}%</td><td>${modelDef.returns[i].toFixed(2)}%</td><td>${modelDef.volatility[i].toFixed(2)}%</td></tr>`;
+  }).join('')}</tbody></table></div><p style="font-size:14.5px;color:var(--muted);line-height:1.55;">Your current plan assumes ${(inputs.preReturn*100).toFixed(1)}% return / ${(inputs.preStdev*100).toFixed(1)}% volatility before retirement and ${(inputs.postReturn*100).toFixed(1)}% / ${(inputs.postStdev*100).toFixed(1)}% after retirement. The strategy model changes those assumptions gradually by life stage. Published equity, return, and volatility values are used directly; the cash sleeve scales from 1% in accumulation to ${modelDef.cash[4]}% in distribution, with fixed income filling the remainder.</p>`;
+}
+
 function renderExplorers() {
   const inputs = readInputs();
   const ctx = buildContext(inputs);
   renderWhatIfCards();
   renderWhatIfSavingsChart(inputs, ctx);
   renderMarketExplorer(inputs, ctx);
+  renderAllocationExplorer(inputs, ctx);
   renderHistoricalBacktest(inputs, ctx);
   const whatIf = WHAT_IF_SCENARIOS.map(s => runExplorerScenario(s, inputs, ctx));
   // Survivorship (SBP/DIC) is a dynamically-named what-if, shown only once an assumed death age is set on the
