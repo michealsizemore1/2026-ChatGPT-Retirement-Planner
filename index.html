@@ -395,6 +395,7 @@
   .allocation-chart-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;}
   .allocation-chart-grid .mini-chart-card{min-height:330px;}
   .allocation-chart-grid canvas{min-height:250px;}
+  .explorer-analysis-hidden{display:none !important;}
   @media (max-width:900px){.allocation-strategy-grid{grid-template-columns:repeat(2,minmax(150px,1fr));}.allocation-chart-grid{grid-template-columns:1fr;}}
   @media (max-width:560px){.allocation-strategy-grid,.allocation-outcome-grid{grid-template-columns:1fr;}}
 
@@ -700,6 +701,7 @@
        every card fully open regardless of its on-screen collapsed/expanded state. */
     .card.collapsed > *:not(h3){ display:block !important; }
     .card h3::after{ display:none !important; }
+    .explorer-analysis-hidden{ display:block !important; }
 
     /* Wide tables/registers normally scroll horizontally on screen; paper can't scroll, so let them
        run their natural width instead of getting clipped. */
@@ -5017,9 +5019,15 @@ function activateExplorerAnalysis(analysisId, scrollToSection = true, persist = 
   const page = document.querySelector('.page[data-page="explorers"]');
   if (!page) return;
   const cards = page.querySelectorAll('[data-explorer-analysis]');
-  cards.forEach(card => card.classList.add('collapsed'));
+  // Explorers behaves as separate subsections, not a long accordion: only the analysis selected in
+  // the hamburger submenu is present on screen. Print CSS deliberately reveals all of them again.
+  cards.forEach(card => {
+    const selected = card.dataset.explorerAnalysis === analysisId;
+    card.classList.toggle('explorer-analysis-hidden', !selected);
+    card.classList.toggle('collapsed', !selected);
+  });
   const target = page.querySelector(`[data-explorer-analysis="${analysisId}"]`);
-  if (target) target.classList.remove('collapsed');
+  if (target) { target.classList.remove('collapsed'); target.classList.remove('explorer-analysis-hidden'); }
   document.querySelectorAll('.nav-subitem[data-explorer-nav]').forEach(item => item.classList.toggle('active', item.dataset.explorerNav === analysisId));
   const group = els('explorerNavGroup');
   if (group) group.classList.add('open');
