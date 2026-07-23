@@ -765,15 +765,20 @@
       <button type="button" class="nav-subitem" data-page="housing" onclick="showPage('housing')">Housing</button>
     </div>
   </div>
-  <div class="nav-item" data-page="incomeexpenses" onclick="showPage('incomeexpenses')">Income vs Expenses</div>
+  <div class="nav-dropdown" id="insightsNavGroup">
+    <button type="button" class="nav-item nav-dropdown-toggle" id="insightsNavToggle" onclick="toggleInsightsMenu(event)"><span>Insights</span><span class="nav-caret">&#9662;</span></button>
+    <div class="nav-submenu" id="insightsSubmenu">
+      <button type="button" class="nav-subitem" data-page="incomeexpenses" onclick="showPage('incomeexpenses')">Income vs Expenses</button>
+      <button type="button" class="nav-subitem" data-page="gap" onclick="showPage('gap')">Income Gap &amp; Withdrawals</button>
+      <button type="button" class="nav-subitem" data-page="savings" onclick="showPage('savings')">Savings</button>
+      <button type="button" class="nav-subitem" data-page="taxes" onclick="showPage('taxes')">Taxes</button>
+    </div>
+  </div>
   <div class="nav-item" data-page="coach" onclick="showPage('coach')">Coach</div>
   <div class="nav-item" data-page="vault" onclick="showPage('vault')">Document Vault</div>
-  <div class="nav-item" data-page="gap" onclick="showPage('gap')">Income Gap &amp; Withdrawals</div>
   <div class="nav-item" data-page="insurance" onclick="showPage('insurance')">Insurance</div>
   <div class="nav-item" data-page="investments" onclick="showPage('investments')">Investments</div>
-  <div class="nav-item" data-page="savings" onclick="showPage('savings')">Savings</div>
   <div class="nav-item" data-page="survivorship" onclick="showPage('survivorship')">Survivorship</div>
-  <div class="nav-item" data-page="taxes" onclick="showPage('taxes')">Taxes</div>
   <div class="nav-dropdown" id="explorerNavGroup">
     <button type="button" class="nav-item nav-dropdown-toggle" data-page="explorers" onclick="toggleExplorerMenu(event)"><span>Explorers</span><span class="nav-caret">&#9662;</span></button>
     <div class="nav-submenu" id="explorerSubmenu">
@@ -4969,6 +4974,7 @@ const PAGE_LABELS = {
   explorers:'Explorers', coach:'Coach', settings:'Settings'
 };
 const MY_PLAN_PAGES = ['dashboard','personal','income','expenses','accounts','assumptions','estate','debt','moneyflows','medical','housing'];
+const INSIGHTS_PAGES = ['incomeexpenses','gap','savings','taxes'];
 const EXPLORER_ANALYSIS_KEY = 'retirementPlannerExplorerAnalysis_v1';
 const EXPLORER_ANALYSES = {
   whatif:'What If I...', market:'Market Explorer', allocation:'Allocation Explorer',
@@ -4990,6 +4996,12 @@ function closeMenu() {
 function toggleMyPlanMenu(event) {
   if (event) event.stopPropagation();
   const group = els('myPlanNavGroup');
+  if (group) group.classList.toggle('open');
+}
+
+function toggleInsightsMenu(event) {
+  if (event) event.stopPropagation();
+  const group = els('insightsNavGroup');
   if (group) group.classList.toggle('open');
 }
 
@@ -5070,8 +5082,11 @@ function activatePageShell(pageId) {
   document.querySelectorAll('#sidenav [data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
   els('currentPageLabel').textContent = PAGE_LABELS[pageId] || pageId;
   const inMyPlan = MY_PLAN_PAGES.includes(pageId);
+  const inInsights = INSIGHTS_PAGES.includes(pageId);
   if (els('myPlanNavGroup')) els('myPlanNavGroup').classList.toggle('open', inMyPlan);
   if (els('myPlanNavToggle')) els('myPlanNavToggle').classList.toggle('active', inMyPlan);
+  if (els('insightsNavGroup')) els('insightsNavGroup').classList.toggle('open', inInsights);
+  if (els('insightsNavToggle')) els('insightsNavToggle').classList.toggle('active', inInsights);
   if (els('explorerNavGroup')) els('explorerNavGroup').classList.toggle('open', pageId === 'explorers');
   return pageId;
 }
