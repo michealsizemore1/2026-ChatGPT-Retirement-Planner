@@ -1058,7 +1058,7 @@
         <div class="mini-label">Annuity</div>
         <div class="three-col">
           <div class="field"><label>Annuity payout ($/mo, today's $)</label><input type="number" id="annuityMonthly" value="0" step="50"></div>
-          <div class="field"><label>Annuity start age</label><input type="number" id="annuityStartAge" value="0" min="40" max="95" oninput="syncDateFromAge('annuityStartAge','annuityStartAgeDate','annuityStartAgeDateHint','currentAge')">
+          <div class="field"><label>Annuity start age (0 = none)</label><input type="number" id="annuityStartAge" value="0" min="0" max="95" oninput="syncDateFromAge('annuityStartAge','annuityStartAgeDate','annuityStartAgeDateHint','currentAge')">
             <input type="month" id="annuityStartAgeDate" class="age-date-input" oninput="syncAgeDate('annuityStartAgeDate','annuityStartAge','annuityStartAgeDateHint','currentAge')" value="">
             <div id="annuityStartAgeDateHint" class="age-date-hint"></div>
           </div>
@@ -1099,7 +1099,7 @@
         <div class="checkbox-row"><input type="checkbox" id="sbp1Enabled" onchange="render()" checked><label for="sbp1Enabled">SBP elected on Military Pension</label></div>
         <div class="two-col">
           <div class="field"><label>SBP coverage (% of pension)</label><input type="number" id="sbp1Pct" value="55" min="0" max="55" step="1"></div>
-          <div class="field"><label>SBP premium you pay now ($/mo)</label><input type="number" id="sbp1PremiumMonthly" value="162" step="5"></div>
+          <div class="field"><label>SBP premium reference ($/mo)</label><input type="number" id="sbp1PremiumMonthly" value="162" step="1"></div>
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">= <span id="sbp1Computed">$0</span>/mo to spouse, taxable, based on your current Military Pension amount</p>
         <div class="mini-label">Survivor Annuity on Government Civil Service Pension</div>
@@ -1112,7 +1112,7 @@
         <div class="mini-label">VA Dependency &amp; Indemnity Compensation (DIC)</div>
         <div class="checkbox-row"><input type="checkbox" id="dicEligible" checked><label for="dicEligible">Spouse likely DIC-eligible</label></div>
         <div class="field"><label>DIC amount ($/mo, tax-free — 2026 base rate is $1,699.36)</label><input type="number" id="dicMonthlyAmount" value="1699" step="1"></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Military SBP pays 55% of your pension and is taxable income to your spouse; Government Civil Service survivor annuities max out at 50%. Both auto-calculate from your entered pension amounts above and grow at that pension's own yearly increase rate. The premium (paid while you're alive) stops once the survivor annuity starts. DIC is tax-free and, since Jan. 2023, no longer offsets SBP — your spouse can receive both in full at the same time. DIC eligibility depends on cause/duration of a service-connected disability rating, not just having one — worth confirming with the VA.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Military SBP pays 55% of your pension and is taxable income to your spouse; Government Civil Service survivor annuities max out at 50%. Both auto-calculate from your entered gross pension amounts and grow at that pension's own yearly increase rate. Your $162 monthly Military SBP deduction is modeled as an Insurance premium while you are alive, so the reference amount above is not added a second time. The Insurance premium stops in the separate survivorship scenario. DIC is tax-free and, since Jan. 2023, no longer offsets SBP.</p>
       </div>
 
       <div class="card">
@@ -1264,8 +1264,7 @@
           <div class="field"><label>Savings ($)</label><input type="number" id="savingsBalance" value="25" step="500"></div>
           <div class="field"><label>HYSA ($)</label><input type="number" id="hysaBalance" value="7250" step="500"></div>
         </div>
-        <button class="add-btn" onclick="syncSavingsAndHysaFromTracker()">Sync Savings &amp; HYSA from Accounts &amp; Cards</button>
-        <p id="accountSyncStatus" style="font-size:14.5px;color:var(--muted);margin:6px 0 12px;"></p>
+        <p style="font-size:14.5px;color:var(--muted);margin:4px 0 12px;">These planning balances are entered manually. Accounts &amp; Cards remains separate and cannot change them.</p>
         <div class="two-col">
           <div class="field"><label>Checking/Savings APY (%)</label><input type="number" id="cashRate" value="0" step="0.1"></div>
           <div class="field"><label>HYSA APY (%)</label><input type="number" id="hysaRate" value="3.2" step="0.1"></div>
@@ -1301,7 +1300,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Accounts &amp; Cards</h2><p>Your household transaction registers — credit card, both checking accounts, savings, and HYSA. Transactions remain separate from the retirement projection. If desired, use the confirmed Sync button on Investments to copy only the Savings and HYSA register balances into the plan.</p></div>
+      <div class="page-header"><h2>Accounts &amp; Cards</h2><p>Your household transaction registers — credit card, both checking accounts, savings, and HYSA. This section remains fully separate from retirement balances, projections, and Monte Carlo calculations.</p></div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div id="trackerHost" style="width:100%;height:82vh;min-height:560px;overflow:hidden;background:#fff;"></div>
       </div>
@@ -1433,7 +1432,7 @@
         <div class="row-list" id="debtRows"></div>
         <button class="add-btn" onclick="addDebt()">+ Add debt</button>
         <div class="total-row"><span>Current + planned loan principal</span><span id="debtTotal">$0</span></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Car Payment's $712/mo is your real number — its balance and APR are placeholders, update them to match your actual loan. Leave Start age blank for a debt you already have. For a planned future loan (like financing a vehicle purchase down the road), set Start age to when you'll take it out — the balance and payments won't begin until then. Term (yrs) is optional and auto-computes the monthly payment for you; clear it to enter a payment manually. Vehicle market values are not modeled, so projected net worth is conservative while auto loans remain outstanding.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;"><b>Vehicle value ($)</b> is the place to enter your car's current market value; it can be updated whenever you wish. Car Payment's $712/mo is your real number — update its balance and APR to match the loan. Leave Start age blank for a debt you already have. For a planned future loan, set Start age to when you'll take it out. Term (yrs) is optional and auto-computes the monthly payment; clear it to enter a payment manually. Vehicle value is included in net worth and depreciates at the percentage shown.</p>
       </div>
 
       <div class="card">
@@ -1501,8 +1500,8 @@
         <h3 onclick="toggleCard(this)">Post-Medicare — Part B<span class="sub-label">Each of you separately, starting at your own Medicare eligibility age. Neither of you needs Part D.</span></h3>
         <div class="field"><label>Medicare eligibility age (both of you)</label><input type="number" id="medicareAge" value="65" min="60" max="75"></div>
         <div class="two-col">
-          <div class="field"><label>Your Part B premium ($/mo, today's $)</label><input type="number" id="partBUserMonthly" value="185" step="5"></div>
-          <div class="field"><label>Spouse's Part B premium ($/mo, today's $)</label><input type="number" id="partBSpouseMonthly" value="185" step="5"></div>
+          <div class="field"><label>Your Part B premium ($/mo, today's $)</label><input type="number" id="partBUserMonthly" value="202.90" step="0.10"></div>
+          <div class="field"><label>Spouse's Part B premium ($/mo, today's $)</label><input type="number" id="partBSpouseMonthly" value="202.90" step="0.10"></div>
         </div>
         <hr class="divider">
         <div class="mini-label" style="margin-bottom:2px;">RMDs &amp; IRMAA</div>
@@ -1662,7 +1661,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Taxes</h2><p>Real 2026 federal marginal brackets (Married Filing Jointly) plus Idaho's flat state rate, applied to your guaranteed income and Traditional TSP withdrawals each year. Capital gains use federal long-term capital gains brackets; Idaho taxes gains as ordinary income at its flat rate.</p></div>
+      <div class="page-header"><h2>Taxes</h2><p>Real 2026 federal marginal brackets (Married Filing Jointly) plus Idaho's 0% opening band and 5.3% rate above it. Capital gains use federal long-term capital-gains brackets and only the taxable-gain portion of a brokerage withdrawal.</p></div>
       <div class="mini-chart-card"><canvas id="chart_taxes"></canvas></div>
 
       <div class="results-grid" id="taxStats"></div>
@@ -1688,12 +1687,15 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Federal<span class="sub-label">2026 brackets, Married Filing Jointly (10/12/22/24/32/35/37%)</span></h3>
         <div class="field"><label>Standard deduction ($/yr, MFJ)</label><input type="number" id="stdDeduction" value="32200" step="100"></div>
+        <div class="field"><label>Taxable gain portion of brokerage withdrawals (%)</label><input type="number" id="brokerageTaxablePct" value="100" min="0" max="100" step="1"></div>
+        <p style="font-size:15.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Set this to the estimated percentage of each brokerage sale that is gain rather than your original cost basis. It remains at 100% by default to preserve the planner's conservative treatment until you enter a better estimate.</p>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Social Security and spousal benefits use the IRS provisional-income formula (between 0% and 85% taxable); VA disability stays fully tax-free. Both pensions and annuity income are treated as fully taxable.</p>
       </div>
 
       <div class="card">
-        <h3 onclick="toggleCard(this)">Idaho State Tax<span class="sub-label">Flat rate, applies to all taxable ordinary income and capital gains</span></h3>
-        <div class="field"><label>Idaho flat income tax rate (%)</label><input type="number" id="idahoRate" value="5.3" step="0.1"></div>
+        <h3 onclick="toggleCard(this)">Idaho State Tax<span class="sub-label">0% opening band, then the entered rate</span></h3>
+        <div class="field"><label>Idaho income tax rate above the 0% band (%)</label><input type="number" id="idahoRate" value="5.3" step="0.1"></div>
+        <p style="font-size:15.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">The first $9,622 of taxable income for Married Filing Jointly is modeled at 0%, indexed with General Inflation in later projection years. The planner does not automatically claim a military-retirement deduction because eligibility must be confirmed for your tax situation.</p>
       </div>
 
       <div class="card">
@@ -2067,14 +2069,15 @@
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Backup &amp; Restore</h3>
-        <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Your data is saved automatically in this browser, but it's tied to this browser/device. Download a backup to move it elsewhere or keep a copy.</p>
-        <button class="add-btn" onclick="downloadBackup()">Download backup (.json)</button>
+        <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Your planner data is saved automatically in this browser, but it is tied to this browser/device. The JSON backup contains the retirement plan but never includes your Anthropic API key. Accounts &amp; Cards and Document Vault remain separate; use their own exports or keep copies of the original files.</p>
+        <button class="add-btn" onclick="downloadBackup()">Download planner backup (.json)</button>
         <div class="field" style="margin-top:14px;">
           <label>Restore from backup</label>
           <input type="file" id="restoreFileInput" accept="application/json" onchange="restoreFromFile(this.files[0])">
         </div>
         <hr class="divider">
-        <button class="add-btn" style="background:#fdf3f1; color:var(--danger);" onclick="resetAllData()">Reset everything to defaults</button>
+        <button class="add-btn" style="background:#fdf3f1; color:var(--danger);" onclick="resetAllData()">Reset planner to defaults</button>
+        <p style="font-size:14.5px;color:var(--muted);margin:8px 0 0;">This resets the retirement plan, notes, checkpoints, and Coach conversation. Accounts &amp; Cards and Document Vault remain separate and are not erased.</p>
       </div>
 
       <div class="card">
@@ -2091,7 +2094,7 @@
       <div class="card print-sensitive">
         <h3 onclick="toggleCard(this)">Coach AI Chat<span class="sub-label">Optional — only used if you add a key</span></h3>
         <div class="field"><label>Anthropic API key</label><input type="password" id="anthropicApiKey" placeholder="sk-ant-..." autocomplete="off"></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:0;line-height:1.55;">This file has no backend — adding a key here lets the Ask AI panel (and the Coach page) call the Anthropic API directly from your browser, using your own account and usage. The key is stored only in this browser's local storage; it is never sent anywhere except directly to Anthropic when you ask a question. Each question sends a full snapshot of your plan — balances, income, expenses, debt, assumptions, withdrawal strategy, and the year-by-year projection — to Anthropic's servers, so it can give real, specific analysis rather than generic advice. The conversation itself is also saved locally in this browser (not sent anywhere beyond Anthropic) so it's still there next time you open the panel; use "New chat" in the panel to clear it. Leave the key blank to keep the AI fully offline.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:0;line-height:1.55;">This file has no backend — adding a key here lets the Ask AI panel (and the Coach page) call the Anthropic API directly from your browser. For safety, the key is kept only in the currently open page: it is excluded from automatic saves, JSON backups, and printing, and must be entered again after a refresh. Each question sends a full snapshot of your plan to Anthropic's servers. The conversation itself is saved locally; use "New chat" to clear it. Leave the key blank to keep the AI fully offline.</p>
       </div>
     </div>
 
@@ -4734,6 +4737,25 @@ function taxOwedFromBrackets(taxableIncome, brackets) {
   }
   return tax;
 }
+const IDAHO_ZERO_BAND_MFJ = 9622;
+function idahoTaxOwed(taxableIncome, rate, inflationFactor = 1) {
+  return Math.max(0, Math.max(0, taxableIncome) - IDAHO_ZERO_BAND_MFJ * inflationFactor) * Math.max(0, rate);
+}
+function taxOwedOnTaxablePortion(baseTaxableIncome, grossAmount, brackets, flatAddOnRate, taxablePct) {
+  const taxableAmount = Math.max(0, grossAmount) * Math.max(0, Math.min(1, taxablePct));
+  return taxOwedOnIncrement(baseTaxableIncome, taxableAmount, brackets, flatAddOnRate);
+}
+function solveGrossForNetTaxablePortion(baseTaxableIncome, netTarget, brackets, flatAddOnRate, taxablePct) {
+  if (netTarget <= 0) return 0;
+  let low = netTarget, high = Math.max(netTarget * 2, netTarget + 1);
+  const netFromGross = gross => gross - taxOwedOnTaxablePortion(baseTaxableIncome, gross, brackets, flatAddOnRate, taxablePct);
+  while (netFromGross(high) < netTarget && high < netTarget * 20 + 1) high *= 2;
+  for (let i = 0; i < 50; i++) {
+    const mid = (low + high) / 2;
+    if (netFromGross(mid) >= netTarget) high = mid; else low = mid;
+  }
+  return high;
+}
 // Tax owed on an INCREMENTAL amount stacked on top of baseTaxableIncome — e.g. the real tax bill
 // triggered by a withdrawal when other taxable income already fills the lower brackets — computed
 // bracket-by-bracket (not a single flat rate applied to the whole increment, which is what you get by
@@ -5728,27 +5750,14 @@ function restoreAccountsCardsBackup(backup) {
 function saveState(includePortableData = false) {
   const fields = {};
   document.querySelectorAll('.page input, .page select').forEach(el => {
-    if (!el.id) return;
+    if (!el.id || el.id === 'anthropicApiKey') return;
     fields[el.id] = el.type === 'checkbox' ? el.checked : el.value;
   });
-  // checkpointBaseline/checkpointHistory (Plan vs. Actual Checkpoint Tracker) and the Accounts & Cards
-  // register data normally live in their own dedicated localStorage keys, separate from this STORAGE_KEY
-  // blob — included here too, purely so a downloaded backup (downloadBackup()) is a genuinely complete
-  // snapshot instead of silently missing two entire features' worth of data if it's ever used to restore
-  // on a different browser/device. Not restored by the normal applyState()/loadState() boot path below
-  // (same reasoning as sharedNotesText: those two already have their own always-current dedicated keys,
-  // so re-applying a blob that's only as fresh as the last unrelated field edit could clobber a more
-  // recent checkpoint or tracker entry) — only an explicit Restore from Backup applies them, in
-  // restoreFromFile() below.
-  // Automatic browser saves stay deliberately lightweight. Accounts & Cards already persists under
-  // its own localStorage keys; copying the entire register (especially receipt images) into this main
-  // state blob on every edit can exceed the browser quota and make ALL planner saves fail. The portable
-  // copy is included only when explicitly downloading a JSON backup.
+  // Checkpoint history is part of the retirement plan backup. Accounts & Cards and Document Vault use
+  // their own storage/export paths and deliberately remain outside this planner state.
   const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, allocationExplorerStrategy, selectedExplorerAnalysis, sharedNotesText, checkpointBaseline, checkpointHistory };
-  // Persist the compact version first. The potentially large portable Accounts & Cards copy is added
-  // only to the object returned to Download Backup and is never duplicated into localStorage.
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
-  if (includePortableData) state.accountsCardsBackup = readAccountsCardsBackup();
+  // Accounts & Cards remains a separate tool and is intentionally excluded from planner backups.
   return state;
 }
 
@@ -5759,7 +5768,10 @@ function applyState(state) {
   if (Array.isArray(state.debts)) debts = state.debts;
   if (Array.isArray(state.futureExpenses)) futureExpenses = state.futureExpenses;
   if (Array.isArray(state.windfalls)) windfalls = state.windfalls;
-  if (Array.isArray(state.insurancePolicies)) insurancePolicies = state.insurancePolicies;
+  if (Array.isArray(state.insurancePolicies)) {
+    insurancePolicies = state.insurancePolicies;
+    insurancePolicies.forEach(p => { if (/(sbp|spb)/i.test(p.name || '')) p.survivorContinues = false; });
+  }
   if (Array.isArray(state.withdrawalOrderState)) withdrawalOrderState = state.withdrawalOrderState;
   if (typeof state.withdrawalModeCustom === 'boolean') withdrawalModeCustom = state.withdrawalModeCustom;
   if (Array.isArray(state.withdrawalExcludedKeys)) withdrawalExcludedKeys = state.withdrawalExcludedKeys;
@@ -5782,6 +5794,7 @@ function applyState(state) {
   // function, instead of it happening implicitly on every single boot.
   if (state.fields) {
     Object.keys(state.fields).forEach(id => {
+      if (id === 'anthropicApiKey') return;
       const el = els(id);
       if (!el) return;
       if (el.type === 'checkbox') el.checked = !!state.fields[id];
@@ -6292,7 +6305,7 @@ function setWindfallAgeFromDate(i, monthVal) {
 
 // ---------- Insurance policies (dynamic rows, informational — Estate & Insurance page) ----------
 const INSURANCE_TYPES = ['Life','Long-Term Care','Auto','Home/Renters','Umbrella','Disability','Other'];
-let insurancePolicies = [{"name":"State Farm: Car, Renters and Life","type":"Other","premium":127,"coverage":250000},{"name":"Trupanion (Buddy)","type":"Other","premium":81,"coverage":0},{"name":"VGLI","type":"Life","premium":116,"coverage":400000,"survivorContinues":false}];
+let insurancePolicies = [{"name":"State Farm: Car, Renters and Life","type":"Other","premium":127,"coverage":250000},{"name":"Trupanion (Buddy)","type":"Other","premium":81,"coverage":0},{"name":"VGLI","type":"Life","premium":116,"coverage":400000,"survivorContinues":false},{"name":"Military SBP","type":"Other","premium":162,"coverage":0,"survivorContinues":false}];
 function renderInsuranceRows() {
   const container = els('insuranceRows');
   if (!container) return;
@@ -6311,6 +6324,7 @@ function renderInsuranceRows() {
 }
 function updateInsurancePolicy(i, field, value) {
   insurancePolicies[i][field] = (field==='premium'||field==='coverage') ? +value : value;
+  if (field === 'name' && /(sbp|spb)/i.test(value || '')) insurancePolicies[i].survivorContinues = false;
   els('insuranceTotal').textContent = fmtMoney(insurancePolicies.reduce((s,p) => s + (+p.premium||0), 0)) + '/mo';
   render();
 }
@@ -6855,6 +6869,7 @@ function readInputs() {
     propTaxInsPct: +els('propTaxInsPct').value/100,
     homeAppreciation: +els('homeAppreciation').value/100,
     stdDeduction: +els('stdDeduction').value,
+    brokerageTaxablePct: Math.max(0, Math.min(1, (+els('brokerageTaxablePct').value || 0) / 100)),
     idahoRate: +els('idahoRate').value/100,
     ssWageBase: +els('ssWageBase').value,
     ruleOf55Applies: els('ruleOf55Applies').checked,
@@ -7000,7 +7015,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
   let totalRothConverted = 0, totalRothConversionTax = 0;
   // IRMAA lookback proxy: last iteration's approximate MAGI, used as this year's IRMAA basis (see the
   // comment above medicarePremiumBase below) — starts at 0 since there's no prior year before the plan begins.
-  let prevYearMagi = 0;
+  const magiHistory = [];
   const rows = [];
 
   for (let age = inputs.currentAge; age <= ctx.effectiveLifeExpectancy; age++) {
@@ -7131,12 +7146,12 @@ function projectRun(inputs, ctx, randomize, shocks) {
           const idx = +key.slice(4);
           if (balBrokeragePies[idx] !== undefined) {
             if (taxCtx) {
-              const desiredGross = solveGrossForNet(taxCtx.stackBox.v, remain, ltcgBracketsThisYear, inputs.idahoRate);
+              const desiredGross = solveGrossForNetTaxablePortion(taxCtx.stackBox.v, remain, ltcgBracketsThisYear, inputs.idahoRate, inputs.brokerageTaxablePct);
               const take = Math.min(desiredGross, Math.max(0, balBrokeragePies[idx]));
-              const taxAmt = taxOwedOnIncrement(taxCtx.stackBox.v, take, ltcgBracketsThisYear, inputs.idahoRate);
+              const taxAmt = taxOwedOnTaxablePortion(taxCtx.stackBox.v, take, ltcgBracketsThisYear, inputs.idahoRate, inputs.brokerageTaxablePct);
               const netTake = Math.min(remain, take - taxAmt);
               balBrokeragePies[idx] -= take; remain -= netTake; addDirectWithdrawal(key, take);
-              const stateTaxAmt = inputs.idahoRate * take;
+              const stateTaxAmt = inputs.idahoRate * take * inputs.brokerageTaxablePct;
               stateTaxAnnual += stateTaxAmt; federalTaxAnnual += taxAmt - stateTaxAmt;
               // LTCG-taxed pie draws don't add to the ordinary-income stack (a different income type for
               // bracket purposes) — matches takeFrom() below.
@@ -7367,7 +7382,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       const otherTaxableWorkingYears = (income - tradContrib) + pensionAmount + pension2Amount + annuityAmount;
       const taxableWorkingYears = Math.max(0, otherTaxableWorkingYears + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableWorkingYears) - standardDeductionThisYear);
       federalTaxAnnual += taxOwedFromBrackets(taxableWorkingYears, federalBracketsThisYear);
-      stateTaxAnnual += taxableWorkingYears * inputs.idahoRate;
+      stateTaxAnnual += idahoTaxOwed(taxableWorkingYears, inputs.idahoRate, inflator);
       fedMarginal = marginalRateFromBrackets(taxableWorkingYears, federalBracketsThisYear);
       // Brokerage pie contributions come from the same paycheck as the TSP %-based ones, so they grow with the
       // same raise assumption — and stop along with it once Job Loss is active, same reasoning as income above.
@@ -7493,7 +7508,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // contribution, plus the taxable share of any guaranteed income already flowing), carried forward as
       // next year's IRMAA basis — see the post-retirement branch below for why a 1-year lookback is used
       // instead of computing IRMAA off the same year's own income.
-      prevYearMagi = Math.max(0, otherTaxableWorkingYears + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableWorkingYears));
+      magiHistory[y] = Math.max(0, otherTaxableWorkingYears + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableWorkingYears));
     } else {
       if (investableAtRetirement === null) {
         investableAtRetirement = startInvestable;
@@ -7527,20 +7542,18 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // edge case like being fully covered another way) — checked by default, so this normally has no effect.
       const medicalContinuesForSurvivor = !survivorshipActive || inputs.survivorMedicalContinues !== false;
       // IRMAA (Income-Related Monthly Adjustment Amount): a Medicare Part B surcharge above certain household
-      // MAGI thresholds. Real IRMAA uses a 2-year-old MAGI figure (this year's premium is set from tax return
-      // data from two years ago); this engine approximates that lag with a 1-year lookback instead (prevYearMagi,
-      // carried over from the end of the previous loop iteration — see below) both to avoid circularity (this
-      // year's own withdrawal amount isn't known until after the spending/withdrawal waterfall runs later on)
-      // and because a full 2-year rolling window isn't worth the added complexity for an estimate. Bracket
-      // thresholds and surcharge dollar amounts are both approximate, based on published 2025 CMS figures for
-      // Married Filing Jointly — not authoritative tax figures; verify against current IRS/CMS guidance as
+      // MAGI thresholds. Real IRMAA uses a 2-year-old MAGI figure, so the modeled MAGI history uses the
+      // same two-year lag. Before two modeled years exist, no surcharge is assumed because the planner
+      // does not have the earlier tax returns. Thresholds and surcharges use the published 2026 CMS figures;
+      // verify against current IRS/CMS guidance as
       // RMD/IRMAA-relevant ages actually approach. Thresholds grow with General Inflation (same simplification
       // used for the Social Security wage base elsewhere); the surcharge itself is left in today's $ and rides
       // along with medicalInflator below, same as the Part B premium fields it's added to. Applied per spouse
       // who is actually on Medicare that year, since IRMAA is assessed per Medicare enrollee off the shared
       // household MAGI.
       const irmaaThresholdInflator = Math.pow(1+inputs.inflation, y);
-      const irmaaSurchargeMonthly = irmaaMonthlySurcharge(prevYearMagi, irmaaThresholdInflator);
+      const irmaaLookbackMagi = y >= 2 ? (magiHistory[y - 2] || 0) : 0;
+      const irmaaSurchargeMonthly = irmaaMonthlySurcharge(irmaaLookbackMagi, irmaaThresholdInflator);
       irmaaSurchargeMonthlyForRow = irmaaSurchargeMonthly;
       const medicarePremiumBase = !medicalContinuesForSurvivor ? 0 : (
         (onTricare ? inputs.tricareMonthly + inputs.tricareHearingMonthly + inputs.tricareVisionMonthly + inputs.tricareDentalMonthly : 0) +
@@ -7580,9 +7593,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
       const mustSpendNonMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendNonMedicalSurvivor : expTotalsThisYear.mustSpendNonMedical;
       const mustSpendMedicalForYear = survivorshipActive ? expTotalsThisYear.mustSpendMedicalSurvivor : expTotalsThisYear.mustSpendMedical;
       const mustSpendCategoriesAnnual = (mustSpendNonMedicalForYear * inflator + mustSpendMedicalForYear * medicalInflator) * spendMult;
-      // In the separate survivorship scenario, SBP premiums are paid before the assumed death and stop after it.
-      const sbpPremiumAnnual = (inputs.survivorshipEnabled && !survivorshipActive)
-        ? ((inputs.sbp1Enabled ? inputs.sbp1PremiumMonthly : 0) + (inputs.sbp2Enabled ? inputs.sbp2PremiumMonthly : 0)) * 12 * inflator : 0;
+      // SBP premiums are modeled as ordinary Insurance rows while the covered person is alive. They are
+      // not added again here, which would double-count the user's Military SBP policy.
+      const sbpPremiumAnnual = 0;
       let totalSpending = expensesInflated + housingCost + debtPaymentThisYear + insurancePremiumAnnual + sbpPremiumAnnual;
       // Everything except the discretionary slice of recurring expenses is treated as 100% essential —
       // housing, debt payments, insurance premiums, SBP premiums, and Tricare/Medicare/FEDVIP premiums
@@ -7605,7 +7618,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // Guaranteed income doesn't arrive tax-free — actual federal + Idaho tax owed on it (progressive, using the
       // standard deduction) is deducted before comparing it against spending, instead of treating it at face value.
       const fedTaxOnGuaranteed = taxOwedFromBrackets(taxableBeforeWithdrawal, federalBracketsThisYear);
-      const idahoTaxOnGuaranteed = taxableBeforeWithdrawal * inputs.idahoRate;
+      const idahoTaxOnGuaranteed = idahoTaxOwed(taxableBeforeWithdrawal, inputs.idahoRate, inflator);
       guaranteedIncomeAfterTax = Math.max(0, guaranteedIncome - fedTaxOnGuaranteed - idahoTaxOnGuaranteed);
       // Seed this year's Federal/State totals with the guaranteed-income tax computed above; takeFrom()
       // (withdrawal loop, further down) adds each account's share on top as it runs.
@@ -7704,7 +7717,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // instead of one flat rate applied to the whole withdrawal. Roth and HYSA are already after-tax.
       const acctTaxInfo = { trad: { brackets: federalBracketsThisYear, flatAdd: inputs.idahoRate + earlyPenalty } };
       const bal = { trad: tradGrown, roth: rothGrown, hysa: hysaGrown };
-      brokPiesGrown.forEach((b, i) => { bal['pie_'+i] = b; acctTaxInfo['pie_'+i] = { brackets: ltcgBracketsThisYear, flatAdd: inputs.idahoRate }; });
+      brokPiesGrown.forEach((b, i) => { bal['pie_'+i] = b; acctTaxInfo['pie_'+i] = { brackets: ltcgBracketsThisYear, flatAdd: inputs.idahoRate, taxablePct: inputs.brokerageTaxablePct }; });
       const takeFrom = (key, desiredNet) => {
         if (desiredNet <= 0 || bal[key] === undefined) return;
         const info = acctTaxInfo[key];
@@ -7717,9 +7730,13 @@ function projectRun(inputs, ctx, randomize, shocks) {
           withdrawalByAccount[key] = (withdrawalByAccount[key] || 0) + netTaken;
           return;
         }
-        const desiredGross = solveGrossForNet(ordinaryIncomeStack, desiredNet, info.brackets, info.flatAdd);
+        const desiredGross = info.taxablePct == null
+          ? solveGrossForNet(ordinaryIncomeStack, desiredNet, info.brackets, info.flatAdd)
+          : solveGrossForNetTaxablePortion(ordinaryIncomeStack, desiredNet, info.brackets, info.flatAdd, info.taxablePct);
         const grossTaken = Math.min(desiredGross, Math.max(0, bal[key]));
-        const taxAmt = taxOwedOnIncrement(ordinaryIncomeStack, grossTaken, info.brackets, info.flatAdd);
+        const taxAmt = info.taxablePct == null
+          ? taxOwedOnIncrement(ordinaryIncomeStack, grossTaken, info.brackets, info.flatAdd)
+          : taxOwedOnTaxablePortion(ordinaryIncomeStack, grossTaken, info.brackets, info.flatAdd, info.taxablePct);
         const netTaken = Math.min(desiredNet, grossTaken - taxAmt);
         bal[key] -= grossTaken;
         remaining -= netTaken;
@@ -7732,7 +7749,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         // Estimated Taxes chart — Idaho's flat rate on the gross is always the state slice; whatever's
         // left (bracket-blended federal + early-withdrawal penalty for Traditional TSP, or the federal
         // LTCG amount for brokerage pie sales) is the federal slice.
-        const stateTaxAmt = inputs.idahoRate * grossTaken;
+        const stateTaxAmt = inputs.idahoRate * grossTaken * (info.taxablePct == null ? 1 : info.taxablePct);
         stateTaxAnnual += stateTaxAmt;
         federalTaxAnnual += taxAmt - stateTaxAmt;
       };
@@ -7876,7 +7893,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // it as taxable for the withdrawal's own tax bill but invisible to MAGI/IRMAA) — forward as the
       // basis for next year's IRMAA tier.
       const brokerageWithdrawalTotal = balBrokeragePies.reduce((s, _, i) => s + (withdrawalByAccount['pie_'+i] || 0), 0);
-      prevYearMagi = Math.max(0, taxableGuaranteed + (withdrawalByAccount.trad || 0) + rothConversionAmount + brokerageWithdrawalTotal);
+      magiHistory[y] = Math.max(0, taxableGuaranteed + (withdrawalByAccount.trad || 0) + rothConversionAmount + brokerageWithdrawalTotal * inputs.brokerageTaxablePct);
 
       const endInvestable = balTrad + balRoth + sumPies(balBrokeragePies);
       if (endInvestable <= 0 && depletionAge === null && startInvestable > 0) depletionAge = age;
@@ -8042,7 +8059,10 @@ function buildContext(inputs) {
   };
 }
 
+const monteCarloScoreCache = new Map();
 function runMonteCarlo(inputs, ctx, N, shocks) {
+  const cacheKey = JSON.stringify([spendingBasis, N, shocks || {}, inputs, expenses, debts, futureExpenses, windfalls, insurancePolicies, brokeragePies]);
+  if (monteCarloScoreCache.has(cacheKey)) return monteCarloScoreCache.get(cacheKey);
   // Use common random market paths for every plan with the same simulation count/shock set. This makes
   // before/after and scenario comparisons isolate the actual input change instead of also changing the
   // random sample. Results remain reproducible across devices and refreshes.
@@ -8050,7 +8070,10 @@ function runMonteCarlo(inputs, ctx, N, shocks) {
   mcRandom = mulberry32(hashStringToSeed(seedSource));
   let successes = 0;
   for (let i = 0; i < N; i++) { if (projectRun(inputs, ctx, true, shocks).success) successes++; }
-  return successes / N * 100;
+  const score = successes / N * 100;
+  if (monteCarloScoreCache.size > 120) monteCarloScoreCache.clear();
+  monteCarloScoreCache.set(cacheKey, score);
+  return score;
 }
 
 function renderMonteCarloAssumptions(inputs, ctx) {
@@ -8077,13 +8100,10 @@ function renderDataQualityChecklist(inputs) {
   const missingJob=expenses.filter(e=>e.jobLoss==null||e.jobLoss==='').length;
   if(missingMust)add('medium',`${missingMust} expense row(s) have no explicit Must Spend amount and use a fallback.`);
   if(missingJob)add('medium',`${missingJob} expense row(s) have no explicit Job Loss amount and use Must Spend as a fallback.`);
+  if(inputs.sbp1Enabled && !insurancePolicies.some(p => /(sbp|spb)/i.test(p.name || '') && (+p.premium || 0) > 0)) add('high','SBP is enabled, but no SBP premium appears in Insurance. Add the monthly deduction there so gross pension income is not overstated.');
+  if(expenses.some(e => /^to cindy$/i.test((e.name || '').trim())) && inputs.rentMonthly > 0) add('medium','Confirm that “To Cindy” does not already include rent, utilities, insurance, or other separately listed costs.');
+  if(inputs.partBUserMonthly < 202.9 || inputs.partBSpouseMonthly < 202.9) add('low','A Medicare Part B amount is below the 2026 standard premium of $202.90/month; confirm that the lower amount is intentional.');
   debts.forEach(d=>{if(d.startAge!=null&&d.startAge!==''&&!d.termYears&&!d.payment)add('high',`${d.name||'Future debt'} has a start age but no term or payment.`);if(d.category==='Auto Loan'&&!(+d.assetValue>0))add('low',`${d.name||'Auto loan'} has no vehicle value; net worth remains conservative.`);});
-  try{
-    ['cc','chk','mike','savings','hysa'].forEach(prefix=>{
-      const key=prefix==='cc'?'cc-register':prefix+'-register', list=JSON.parse(localStorage.getItem(key)||'[]');
-      if(Array.isArray(list))list.forEach(t=>{if(!t.catAmts)return;const vals=t.catAmts.split(',').map(v=>v.trim()).filter(Boolean).map(Number);if(vals.length&&Math.abs(vals.reduce((s,v)=>s+(isFinite(v)?v:0),0)-(+t.amount||0))>=0.01)add('medium',`${prefix.toUpperCase()} transaction “${t.desc||'Unnamed'}” has category allocations that do not equal its total.`);});
-    });
-  }catch(e){add('medium','Accounts & Cards data could not be checked for allocation consistency.');}
   if(!issues.length){host.innerHTML='<div class="note" style="margin:0;">✓ No data-quality issues detected.</div>';return;}
   host.innerHTML=issues.map(i=>`<div style="padding:8px 10px;margin:6px 0;border-left:4px solid ${i.level==='high'?'#c0392b':i.level==='medium'?'#e08c2b':'#8892a0'};background:#f8fafc;font-size:15px;">${i.text}</div>`).join('');
 }
@@ -8309,10 +8329,8 @@ function renderCrisisStressTest(inputs, ctx) {
 }
 
 function runMonteCarloDiagnosticsV2(inputs, ctx, N) {
-  const seedInputs = { ...inputs };
-  delete seedInputs.guardrailsEnabled; delete seedInputs.guardBand; delete seedInputs.guardAdj;
-  const seedSource = 'diagnostics-v2|' + JSON.stringify(seedInputs) + JSON.stringify(expenses) + JSON.stringify(debts)
-    + JSON.stringify(futureExpenses) + JSON.stringify(windfalls) + JSON.stringify(insurancePolicies) + JSON.stringify(brokeragePies) + '|' + N;
+  // Match the Overview seed exactly so the diagnostic score describes the same market paths.
+  const seedSource = 'retirement-planner-common-paths-v2|{}|' + N;
   mcRandom = mulberry32(hashStringToSeed(seedSource));
   let successes = 0;
   const ages = [], reasons = {};
@@ -11095,13 +11113,11 @@ function restoreFromFile(file) {
       // hasn't loaded yet this session, it'll pick up the restored data the first time it's visited, same
       // as any fresh page load. If it was already open before this restore, a page refresh is needed for
       // it to pick up the change (its shadow-DOM tracker can only be attached once per page load).
-      let restoredTrackerData = false;
-      if (state.accountsCardsBackup) { restoreAccountsCardsBackup(state.accountsCardsBackup); restoredTrackerData = true; }
       renderExpenseRows(); renderBrokeragePieRows(); renderPieContributionRows(); renderDebtRows();
       renderFutureExpenseRows(); renderWindfallRows(); renderInsuranceRows();
       saveState();
       render();
-      alert('Backup restored.' + (restoredTrackerData && trackerFrameLoaded ? ' Refresh the page to see restored Accounts & Cards data.' : ''));
+      alert('Retirement planner backup restored. Accounts & Cards and Document Vault were left unchanged.');
     } catch (err) {
       alert('Could not read that file — is it a backup exported from this tool?');
     }
@@ -11156,8 +11172,13 @@ window.addEventListener('beforeprint', () => {
 window.addEventListener('afterprint', restoreApiKeyAfterPrint);
 
 function resetAllData() {
-  if (!confirm('This clears everything saved in this browser and reloads the page with defaults. Continue?')) return;
-  try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(ACTIVE_PAGE_KEY); localStorage.removeItem(EXPLORER_ANALYSIS_KEY); localStorage.removeItem(DOLLAR_VIEW_KEY); localStorage.removeItem(SPENDING_BASIS_KEY); localStorage.removeItem(JOB_LOSS_DATE_KEY); localStorage.removeItem(LAST_BACKUP_KEY); localStorage.removeItem(BACKUP_REMINDER_DISMISSED_KEY); localStorage.removeItem(SHARED_NOTES_KEY); } catch (e) {}
+  if (!confirm('This resets the retirement plan, notes, checkpoints, and Coach conversation. Accounts & Cards and Document Vault remain separate. Continue?')) return;
+  try {
+    [STORAGE_KEY, ACTIVE_PAGE_KEY, EXPLORER_ANALYSIS_KEY, DOLLAR_VIEW_KEY, SPENDING_BASIS_KEY,
+      JOB_LOSS_DATE_KEY, LAST_BACKUP_KEY, BACKUP_REMINDER_DISMISSED_KEY, SHARED_NOTES_KEY,
+      CHECKPOINT_BASELINE_KEY, CHECKPOINT_HISTORY_KEY, COACH_CHAT_HISTORY_KEY]
+      .forEach(key => localStorage.removeItem(key));
+  } catch (e) {}
   location.reload();
 }
 
@@ -11728,6 +11749,7 @@ function render() {
   if (els('guardBand') && els('guardBand').value === '') els('guardBand').value = '20';
 
   const inputs = readInputs();
+  const activePageId = document.querySelector('.page.active')?.dataset.page || 'dashboard';
   const ctx = buildContext(inputs);
   const result = projectRun(inputs, ctx, false);
   renderMonteCarloAssumptions(inputs, ctx);
@@ -11862,7 +11884,7 @@ function render() {
   let survivorshipValue = 'Not set';
   let survivorshipClass = '';
   let survivorshipLabel = 'Survivorship confidence score';
-  if (inputs.survivorshipDeathAge > 0) {
+  if (inputs.survivorshipDeathAge > 0 && (activePageId === 'dashboard' || activePageId === 'survivorship' || (activePageId === 'explorers' && selectedExplorerAnalysis === 'whatifresults'))) {
     const survivorshipScore = runMonteCarlo({ ...inputs, survivorshipEnabled: true }, ctx, 300);
     survivorshipValue = Math.round(survivorshipScore) + '%';
     survivorshipClass = survivorshipScore >= 80 ? 'ok' : (survivorshipScore < 60 ? 'warn' : '');
@@ -11901,7 +11923,7 @@ function render() {
     els('taxStats').innerHTML = `
       <div class="stat"><div class="label">Federal marginal rate (Traditional TSP)</div><div class="value">${fedPct}%</div></div>
       <div class="stat"><div class="label">Federal LTCG rate (Brokerage)</div><div class="value">${ltcgPct}%</div></div>
-      <div class="stat"><div class="label">Idaho flat rate (both)</div><div class="value">${idahoPct}%</div></div>
+      <div class="stat"><div class="label">Idaho rate above 0% band</div><div class="value">${idahoPct}%</div></div>
     `;
   }
 
@@ -11928,13 +11950,14 @@ function render() {
   renderTaxCliffChart(inputs, rows);
   renderRothConversionComparison(inputs, ctx);
 
-  const ageOptions = [55, 56, 57, 58, 59];
-  const ageRuns = ageOptions.map(age => ({
-    age,
-    det: projectRun({...inputs, retirementAge:age}, ctx, false),
-    score: runMonteCarlo({...inputs, retirementAge:age}, ctx, 1000)
-  }));
-  els('compareBox').innerHTML = `
+  if (activePageId === 'explorers' && selectedExplorerAnalysis === 'retirementtiming') {
+    const ageOptions = [55, 56, 57, 58, 59];
+    const ageRuns = ageOptions.map(age => ({
+      age,
+      det: projectRun({...inputs, retirementAge:age}, ctx, false),
+      score: runMonteCarlo({...inputs, retirementAge:age}, ctx, 1000)
+    }));
+    els('compareBox').innerHTML = `
     <div class="retirement-timing-grid">
       ${ageRuns.map(r => {
         const endingRow = r.det.rows && r.det.rows.length ? r.det.rows[r.det.rows.length - 1] : null;
@@ -11955,10 +11978,13 @@ function render() {
         </div>`;
       }).join('')}
     </div>`;
+  }
 
   // Monte Carlo failure diagnostics + historical crisis stress test
-  renderMCDiagnosticsV2(inputs, ctx);
-  renderCrisisStressTestV2(inputs, ctx);
+  if (activePageId === 'dashboard') {
+    renderMCDiagnosticsV2(inputs, ctx);
+    renderCrisisStressTestV2(inputs, ctx);
+  }
 
   // Dashboard chart
   const retirementIndex = rows.findIndex(r => r.age === retirementAge);
