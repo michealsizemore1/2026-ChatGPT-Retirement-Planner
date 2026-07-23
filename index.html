@@ -747,27 +747,31 @@
     <span>Sections</span>
     <button class="sidenav-close" onclick="closeMenu()" aria-label="Close menu">×</button>
   </div>
-  <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</div>
-  <div class="nav-item" data-page="personal" onclick="showPage('personal')">Personal &amp; Family</div>
-  <div class="nav-item" data-page="income" onclick="showPage('income')">Income</div>
-  <div class="nav-item" data-page="expenses" onclick="showPage('expenses')">Expenses</div>
+  <div class="nav-dropdown open" id="myPlanNavGroup">
+    <button type="button" class="nav-item nav-dropdown-toggle active" id="myPlanNavToggle" onclick="toggleMyPlanMenu(event)"><span>My Plan</span><span class="nav-caret">&#9662;</span></button>
+    <div class="nav-submenu" id="myPlanSubmenu">
+      <button type="button" class="nav-subitem active" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</button>
+      <button type="button" class="nav-subitem" data-page="personal" onclick="showPage('personal')">Personal &amp; Family</button>
+      <button type="button" class="nav-subitem" data-page="income" onclick="showPage('income')">Income</button>
+      <button type="button" class="nav-subitem" data-page="expenses" onclick="showPage('expenses')">Expenses</button>
+      <button type="button" class="nav-subitem" data-page="accounts" onclick="showPage('accounts')">Accounts &amp; Cards</button>
+      <button type="button" class="nav-subitem" data-page="assumptions" onclick="showPage('assumptions')">Assumptions &amp; Guardrails</button>
+      <button type="button" class="nav-subitem" data-page="estate" onclick="showPage('estate')">Estate Planning</button>
+      <button type="button" class="nav-subitem" data-page="debt" onclick="showPage('debt')">Debt</button>
+      <button type="button" class="nav-subitem" data-page="moneyflows" onclick="showPage('moneyflows')">Money Flows</button>
+      <button type="button" class="nav-subitem" data-page="medical" onclick="showPage('medical')">Medical</button>
+      <button type="button" class="nav-subitem" data-page="housing" onclick="showPage('housing')">Housing</button>
+    </div>
+  </div>
   <div class="nav-item" data-page="incomeexpenses" onclick="showPage('incomeexpenses')">Income vs Expenses</div>
-  <div class="nav-item" data-page="accounts" onclick="showPage('accounts')">Accounts &amp; Cards</div>
-  <div class="nav-item" data-page="assumptions" onclick="showPage('assumptions')">Assumptions &amp; Guardrails</div>
   <div class="nav-item" data-page="coach" onclick="showPage('coach')">Coach</div>
-  <div class="nav-item" data-page="debt" onclick="showPage('debt')">Debt</div>
   <div class="nav-item" data-page="vault" onclick="showPage('vault')">Document Vault</div>
-  <div class="nav-item" data-page="estate" onclick="showPage('estate')">Estate Planning</div>
-  <div class="nav-item" data-page="housing" onclick="showPage('housing')">Housing</div>
   <div class="nav-item" data-page="gap" onclick="showPage('gap')">Income Gap &amp; Withdrawals</div>
   <div class="nav-item" data-page="insurance" onclick="showPage('insurance')">Insurance</div>
   <div class="nav-item" data-page="investments" onclick="showPage('investments')">Investments</div>
-  <div class="nav-item" data-page="medical" onclick="showPage('medical')">Medical</div>
-  <div class="nav-item" data-page="moneyflows" onclick="showPage('moneyflows')">Money Flows</div>
   <div class="nav-item" data-page="savings" onclick="showPage('savings')">Savings</div>
   <div class="nav-item" data-page="survivorship" onclick="showPage('survivorship')">Survivorship</div>
   <div class="nav-item" data-page="taxes" onclick="showPage('taxes')">Taxes</div>
-  <div class="nav-item" data-page="settings" onclick="showPage('settings')">Settings</div>
   <div class="nav-dropdown" id="explorerNavGroup">
     <button type="button" class="nav-item nav-dropdown-toggle" data-page="explorers" onclick="toggleExplorerMenu(event)"><span>Explorers</span><span class="nav-caret">&#9662;</span></button>
     <div class="nav-submenu" id="explorerSubmenu">
@@ -782,6 +786,7 @@
       <button type="button" class="nav-subitem" data-explorer-nav="sensitivity" onclick="showExplorerAnalysis('sensitivity')">Sensitivity Analysis</button>
     </div>
   </div>
+  <div class="nav-item" data-page="settings" onclick="showPage('settings')">Settings</div>
 </nav>
 
 <div class="shell">
@@ -4961,6 +4966,7 @@ const PAGE_LABELS = {
   taxes:'Taxes', assumptions:'Assumptions & Guardrails',
   explorers:'Explorers', coach:'Coach', settings:'Settings'
 };
+const MY_PLAN_PAGES = ['dashboard','personal','income','expenses','accounts','assumptions','estate','debt','moneyflows','medical','housing'];
 const EXPLORER_ANALYSIS_KEY = 'retirementPlannerExplorerAnalysis_v1';
 const EXPLORER_ANALYSES = {
   whatif:'What If I...', market:'Market Explorer', allocation:'Allocation Explorer',
@@ -4977,6 +4983,12 @@ function toggleMenu() {
 function closeMenu() {
   els('sidenav').classList.remove('open');
   els('navOverlay').classList.remove('open');
+}
+
+function toggleMyPlanMenu(event) {
+  if (event) event.stopPropagation();
+  const group = els('myPlanNavGroup');
+  if (group) group.classList.toggle('open');
 }
 
 function toggleExplorerMenu(event) {
@@ -5040,15 +5052,18 @@ function showExplorerAnalysis(analysisId) {
 }
 
 function isKnownPage(pageId) {
-  return Array.from(document.querySelectorAll('#sidenav .nav-item[data-page]'))
+  return Array.from(document.querySelectorAll('#sidenav [data-page]'))
     .some(item => item.dataset.page === pageId);
 }
 
 function activatePageShell(pageId) {
   if (!isKnownPage(pageId)) pageId = 'dashboard';
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
+  document.querySelectorAll('#sidenav [data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
   els('currentPageLabel').textContent = PAGE_LABELS[pageId] || pageId;
+  const inMyPlan = MY_PLAN_PAGES.includes(pageId);
+  if (els('myPlanNavGroup')) els('myPlanNavGroup').classList.toggle('open', inMyPlan);
+  if (els('myPlanNavToggle')) els('myPlanNavToggle').classList.toggle('active', inMyPlan);
   if (els('explorerNavGroup')) els('explorerNavGroup').classList.toggle('open', pageId === 'explorers');
   return pageId;
 }
@@ -11015,7 +11030,7 @@ function printFullPlan() {
   };
   window.addEventListener('afterprint', restoreOriginalPage);
   // Building hidden sections for print must not overwrite the user's saved active section.
-  document.querySelectorAll('.nav-item[data-page]').forEach(n => showPage(n.dataset.page, false));
+  document.querySelectorAll('#sidenav [data-page]').forEach(n => showPage(n.dataset.page, false));
   window.print();
 }
 
