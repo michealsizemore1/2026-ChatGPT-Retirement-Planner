@@ -355,6 +355,28 @@
   .stat .value{font-size:28px; font-weight:700; color:var(--navy);}
   .stat.warn .value{color:var(--danger);}
   .stat.ok .value{color:var(--good);}
+  .wellness-summary{background:linear-gradient(135deg,var(--navy),#244f57);color:#fff;border:0;}
+  .wellness-summary h3{color:#fff;cursor:default;}
+  .wellness-summary h3::after{display:none;}
+  .wellness-summary-line{font-size:21px;font-weight:700;line-height:1.45;margin-bottom:8px;}
+  .wellness-summary-detail{font-size:15.5px;line-height:1.55;color:rgba(255,255,255,.84);}
+  .wellness-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:16px;}
+  .wellness-metric{background:var(--card);border:1px solid var(--border);border-top:4px solid var(--muted);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;min-height:210px;}
+  .wellness-metric.strong{border-top-color:var(--good);}
+  .wellness-metric.watch{border-top-color:var(--orange);}
+  .wellness-metric.attention{border-top-color:var(--danger);}
+  .wellness-metric.info{border-top-color:#5a4fcf;}
+  .wellness-metric-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;}
+  .wellness-metric-title{font-size:16px;font-weight:700;color:var(--navy);line-height:1.3;}
+  .wellness-status{flex:0 0 auto;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;background:#eef2f4;color:var(--muted);}
+  .wellness-status.strong{background:#e8f5ef;color:var(--good);}
+  .wellness-status.watch{background:#fff2df;color:#9a5a09;}
+  .wellness-status.attention{background:#fdebea;color:var(--danger);}
+  .wellness-status.info{background:#efedff;color:#5145b5;}
+  .wellness-value{font-size:28px;font-weight:800;color:var(--navy);line-height:1.15;margin-bottom:9px;}
+  .wellness-detail{font-size:14.5px;line-height:1.5;color:var(--muted);flex:1;}
+  .wellness-link{align-self:flex-start;margin-top:12px;border:0;background:transparent;color:var(--teal);font:inherit;font-size:14px;font-weight:700;padding:0;cursor:pointer;}
+  .wellness-link:hover{text-decoration:underline;}
 
   /* "What If I..." card selector (Explorers page) — a Boldin-style single-select grid of quick
      stress-test scenarios. Clicking a card toggles it on/off; the radio circle fills in teal when
@@ -692,7 +714,7 @@
     .remove-btn, .add-btn, .withdraw-order-arrows,
     input[type="file"], input[type="range"],
     .chat-box, #vaultAiGate, #vaultSearchInput, #vaultUploadStatus,
-    .open-btn,
+    .open-btn, .wellness-link,
     .print-sensitive,
     .shared-notes-card small
     { display:none !important; }
@@ -755,6 +777,7 @@
   <symbol id="navIconPlan" viewBox="0 0 24 24"><path d="M5 20V5m0 1h9l-1.5 3L14 12H5"/><circle cx="18.5" cy="17.5" r="2.5"/><path d="M15.8 15.8l-3.2-2.3"/></symbol>
   <symbol id="navIconVault" viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.2-2.7 7.5-7 9.5-4.3-2-7-5.3-7-9.5V6z"/><path d="M9 9h6M9 12h4M9 15h3"/></symbol>
   <symbol id="navIconCoach" viewBox="0 0 24 24"><path d="M4 5.5h16v11H9l-5 3z"/><path d="M12 8l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5L11 10z"/></symbol>
+  <symbol id="navIconWellness" viewBox="0 0 24 24"><path d="M3.5 12h4l2-5 4 10 2.2-5h4.8"/><path d="M12 21C7.5 18.6 4 15.4 4 10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 3.5c0 4.9-3.5 8.1-8 10.5z"/></symbol>
   <symbol id="navIconAccounts" viewBox="0 0 24 24"><path d="M4 7.5h14a2 2 0 0 1 2 2v8H6a2 2 0 0 1-2-2z"/><path d="M4 9l12-4v2.5M15.5 12h4.5v3h-4.5a1.5 1.5 0 0 1 0-3z"/></symbol>
   <symbol id="navIconInsights" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
   <symbol id="navIconExplorers" viewBox="0 0 24 24"><path d="M3.5 6l5-2 7 2 5-2v14l-5 2-7-2-5 2zM8.5 4v14M15.5 6v14"/><path d="M11 13l2-4 1.5 3.5z"/></symbol>
@@ -786,6 +809,7 @@
   </div>
   <div class="nav-item" data-page="vault" onclick="showPage('vault')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconVault"></use></svg><span>Document Vault</span></div>
   <div class="nav-item" data-page="coach" onclick="showPage('coach')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconCoach"></use></svg><span>Coach</span></div>
+  <div class="nav-item" data-page="wellness" onclick="showPage('wellness')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconWellness"></use></svg><span>Financial Wellness</span></div>
   <div class="nav-item" data-page="accounts" onclick="showPage('accounts')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconAccounts"></use></svg><span>Accounts &amp; Cards</span></div>
   <div class="nav-dropdown" id="insightsNavGroup">
     <button type="button" class="nav-item nav-dropdown-toggle" id="insightsNavToggle" onclick="toggleInsightsMenu(event)"><span class="nav-label"><svg class="nav-icon" aria-hidden="true"><use href="#navIconInsights"></use></svg><span>Insights</span></span><span class="nav-caret">&#9662;</span></button>
@@ -1952,6 +1976,22 @@
         <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">The <b>Ask AI</b> button in the bottom-right corner is available on every page, so you don't have to come back here to ask a question.</p>
         <button class="add-btn" onclick="toggleFloatingAi(true)">Open Ask AI</button>
       </div>
+    </div>
+
+    <!-- ================= FINANCIAL WELLNESS ================= -->
+    <div class="page" data-page="wellness">
+      <div class="shared-notes-card">
+        <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
+        <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
+      </div>
+      <div class="page-header"><h2>Financial Wellness</h2><p>A diagnostic view of the plan's individual strengths and pressure points. These measurements explain the plan; they do not change your projection or Monte Carlo score.</p></div>
+      <div class="card wellness-summary no-autocollapse">
+        <h3>Plan Health Snapshot</h3>
+        <div class="wellness-summary-line" id="wellnessSummaryLine">Calculating your current plan…</div>
+        <div class="wellness-summary-detail" id="wellnessSummaryDetail">Each measure is rated separately so one strong number cannot conceal an unrelated risk.</div>
+      </div>
+      <div class="wellness-grid" id="financialWellnessMetrics"></div>
+      <div class="note"><b>How to read this page:</b> Strong means the measure is within a generally favorable planning range; Watch means it deserves monitoring; Attention means it may warrant a closer review. These are planning signals, not guarantees or individualized tax, investment, legal, or insurance advice. Survivorship remains a separate what-if analysis and never changes the main plan.</div>
     </div>
 
     <!-- ================= SAVINGS ================= -->
@@ -4989,7 +5029,7 @@ const PAGE_LABELS = {
   investments:'Investments', accounts:'Accounts & Cards', housing:'Housing', expenses:'Expenses', incomeexpenses:'Income vs Expenses', debt:'Debt',
   gap:'Income Gap & Withdrawals', medical:'Medical', estate:'Estate Planning', vault:'Document Vault', insurance:'Insurance',
   taxes:'Taxes', assumptions:'Assumptions & Guardrails',
-  explorers:'Explorers', coach:'Coach', settings:'Settings'
+  explorers:'Explorers', coach:'Coach', wellness:'Financial Wellness', settings:'Settings'
 };
 const MY_PLAN_PAGES = ['personal','income','expenses','insurance','investments','assumptions','estate','debt','moneyflows','medical','housing'];
 const INSIGHTS_PAGES = ['incomeexpenses','gap','savings','taxes'];
@@ -11404,6 +11444,245 @@ function renderRothConversionComparison(inputs, ctx) {
   `;
 }
 
+function renderFinancialWellness(inputs, ctx, result, confidenceScore) {
+  const metricsEl = els('financialWellnessMetrics');
+  const summaryLineEl = els('wellnessSummaryLine');
+  const summaryDetailEl = els('wellnessSummaryDetail');
+  if (!metricsEl || !summaryLineEl || !summaryDetailEl) return;
+
+  const rows = result.rows || [];
+  const currentRow = rows[0] || {};
+  const retirementRow = rows.find(r => r.age === inputs.retirementAge) || rows.find(r => r.age >= inputs.retirementAge) || rows[rows.length - 1] || {};
+  const grossIncomeNow = Math.max(0, currentRow.income || 0) + Math.max(0, currentRow.guaranteedIncome || 0);
+  const employeeSavings = Math.max(0, currentRow.tradContribOut || 0)
+    + Math.max(0, currentRow.rothContribOut || 0)
+    + Math.max(0, inputs.brokerageContribution || 0)
+    + Math.max(0, currentRow.excessIncomeSaved || 0);
+  const employerMatch = Math.max(0, currentRow.matchContribOut || 0);
+  const savingsRate = grossIncomeNow > 0 ? employeeSavings / grossIncomeNow : null;
+  const currentTaxes = (currentRow.federalTaxAnnual || 0) + (currentRow.stateTaxAnnual || 0) + (currentRow.ficaTaxAnnual || 0);
+  const currentLivingCost = Math.max(0, currentRow.recurringLivingCostThisYear || 0);
+  const nextYearCashFlow = grossIncomeNow - currentTaxes - currentLivingCost - employeeSavings;
+
+  const withdrawalRates = [];
+  rows.forEach((row, index) => {
+    if (row.age < inputs.retirementAge) return;
+    const prior = index > 0 ? rows[index - 1] : null;
+    const startingSavings = prior
+      ? Math.max(0, prior.investable || 0) + Math.max(0, prior.cash || 0)
+      : Math.max(0, result.investableAtRetirement || 0) + Math.max(0, result.cashAtRetirement || 0);
+    const grossWithdrawal = Math.max(0, row.grossWithdrawal || 0);
+    if (startingSavings > 0) withdrawalRates.push(grossWithdrawal / startingSavings);
+    else if (grossWithdrawal > 0) withdrawalRates.push(1);
+  });
+  const averageWithdrawalRate = withdrawalRates.length
+    ? withdrawalRates.reduce((sum, rate) => sum + rate, 0) / withdrawalRates.length
+    : null;
+
+  const retirementGuaranteed = Math.max(0, retirementRow.guaranteedIncomeAfterTax != null
+    ? retirementRow.guaranteedIncomeAfterTax
+    : (retirementRow.guaranteedIncome || 0));
+  const retirementSpending = Math.max(0, retirementRow.spending || 0);
+  const guaranteedCoverage = retirementSpending > 0 ? retirementGuaranteed / retirementSpending : null;
+
+  // Emergency reserves intentionally exclude Checking, which this planner treats as operating cash.
+  const emergencyReserves = Math.max(0, inputs.savingsBalance || 0) + Math.max(0, inputs.hysaBalance || 0);
+  const monthlyLivingCost = currentLivingCost / 12;
+  const reserveMonths = monthlyLivingCost > 0 ? emergencyReserves / monthlyLivingCost : null;
+
+  const currentDebtPaymentAnnual = debts.reduce((sum, debt) => {
+    const activeNow = debt.startAge == null || debt.startAge === '' || +debt.startAge <= inputs.currentAge;
+    return sum + (activeNow ? Math.max(0, +debt.payment || 0) * 12 : 0);
+  }, 0);
+  const debtPaymentRatio = grossIncomeNow > 0 ? currentDebtPaymentAnnual / grossIncomeNow : null;
+  const housingRatio = grossIncomeNow > 0 ? Math.max(0, currentRow.housingCost || 0) / grossIncomeNow : null;
+
+  const taxDeferred = Math.max(0, inputs.tradTSPBalance || 0);
+  const taxFree = Math.max(0, inputs.rothTSPBalance || 0);
+  const taxable = Math.max(0, inputs.brokerageBalance || 0) + Math.max(0, inputs.savingsBalance || 0) + Math.max(0, inputs.hysaBalance || 0);
+  const taxTotal = taxDeferred + taxFree + taxable;
+  const taxShares = taxTotal > 0 ? [taxDeferred / taxTotal, taxFree / taxTotal, taxable / taxTotal] : [0, 0, 0];
+  const meaningfulTaxBuckets = taxShares.filter(share => share >= 0.10).length;
+  const dominantTaxShare = Math.max(...taxShares);
+
+  let survivorCoverage = null;
+  let survivorRow = null;
+  if (inputs.survivorshipDeathAge > 0) {
+    const survivorResult = projectRun({ ...inputs, survivorshipEnabled:true }, ctx, false);
+    survivorRow = survivorResult.rows.find(r => r.age >= inputs.survivorshipDeathAge + 1)
+      || survivorResult.rows.find(r => r.age >= inputs.survivorshipDeathAge)
+      || survivorResult.rows[survivorResult.rows.length - 1];
+    const survivorGuaranteed = survivorRow
+      ? Math.max(0, survivorRow.guaranteedIncomeAfterTax != null ? survivorRow.guaranteedIncomeAfterTax : (survivorRow.guaranteedIncome || 0))
+      : 0;
+    const survivorSpending = survivorRow ? Math.max(0, survivorRow.spending || 0) : 0;
+    survivorCoverage = survivorSpending > 0 ? survivorGuaranteed / survivorSpending : null;
+  }
+
+  // This is deliberately deterministic and clearly labeled as such. It identifies the first retirement
+  // age whose base projection reaches household longevity without a shortfall; it is not a replacement
+  // for Monte Carlo and does not modify the user's selected retirement age.
+  let earliestDeterministicRetirementAge = null;
+  const retirementSearchEnd = Math.max(Math.ceil(inputs.retirementAge) + 10, 70);
+  for (let age = Math.ceil(inputs.currentAge); age <= retirementSearchEnd; age++) {
+    const candidateInputs = { ...inputs, retirementAge:age };
+    const candidateResult = projectRun(candidateInputs, buildContext(candidateInputs), false);
+    if (candidateResult.success) {
+      earliestDeterministicRetirementAge = age;
+      break;
+    }
+  }
+
+  const conversionWindowYears = Math.max(0, Math.min(inputs.ssAge, inputs.rmdAge) - inputs.retirementAge);
+  const tradShare = taxTotal > 0 ? taxDeferred / taxTotal : 0;
+  const pc = value => value == null || !Number.isFinite(value) ? '—' : (value * 100).toFixed(1) + '%';
+  const moneySigned = value => (value < 0 ? '−' : '') + fmtMoney(Math.abs(value));
+  const metric = (title, value, status, detail, page, action, statusLabel) => ({
+    title, value, status, detail, page, action,
+    statusLabel: statusLabel || (status === 'strong' ? 'Strong' : status === 'watch' ? 'Watch' : status === 'attention' ? 'Attention' : 'Review')
+  });
+
+  const metrics = [];
+  const savingsStatus = savingsRate == null ? 'info' : savingsRate >= 0.15 ? 'strong' : savingsRate >= 0.10 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Current savings rate',
+    pc(savingsRate),
+    savingsStatus,
+    savingsRate == null
+      ? 'No current gross income is available for this calculation.'
+      : `${fmtMoney(employeeSavings)}/yr of planned household saving, plus ${fmtMoney(employerMatch)}/yr of employer match. Rate excludes the match from the denominator calculation.`,
+    'moneyflows', 'Review saving flows'
+  ));
+
+  const cashFlowStatus = nextYearCashFlow >= monthlyLivingCost ? 'strong' : nextYearCashFlow >= 0 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Cash flow over the next 12 months',
+    moneySigned(nextYearCashFlow),
+    cashFlowStatus,
+    `Projected gross income minus income/payroll taxes, current living costs, and planned employee savings. ${nextYearCashFlow >= 0 ? 'A positive amount is unallocated breathing room.' : 'A negative amount indicates the current plan requires cash or account support.'}`,
+    'incomeexpenses', 'Review income and expenses'
+  ));
+
+  const withdrawalStatus = averageWithdrawalRate == null ? 'info' : averageWithdrawalRate <= 0.04 ? 'strong' : averageWithdrawalRate <= 0.055 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Average modeled retirement withdrawal rate',
+    pc(averageWithdrawalRate),
+    withdrawalStatus,
+    'Average annual gross portfolio withdrawals divided by the prior year’s investable and cash balance from retirement through household longevity. Zero-withdrawal retirement years are included.',
+    'gap', 'Review withdrawals'
+  ));
+
+  const coverageStatus = guaranteedCoverage == null ? 'info' : guaranteedCoverage >= 1 ? 'strong' : guaranteedCoverage >= 0.75 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Guaranteed-income coverage at retirement',
+    pc(guaranteedCoverage),
+    coverageStatus,
+    `${fmtMoney(retirementGuaranteed)}/yr of guaranteed income after tax compared with ${fmtMoney(retirementSpending)}/yr of modeled spending at age ${retirementRow.age != null ? retirementRow.age : inputs.retirementAge}.`,
+    'income', 'Review retirement income'
+  ));
+
+  const reserveStatus = reserveMonths == null ? 'info' : reserveMonths >= 6 ? 'strong' : reserveMonths >= 3 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Emergency reserve',
+    reserveMonths == null ? '—' : reserveMonths.toFixed(1) + ' months',
+    reserveStatus,
+    `${fmtMoney(emergencyReserves)} in Savings and HYSA divided by current modeled living costs. Checking is excluded as day-to-day operating cash.`,
+    'investments', 'Review cash reserves'
+  ));
+
+  const debtStatus = debtPaymentRatio == null ? 'info' : debtPaymentRatio <= 0.15 ? 'strong' : debtPaymentRatio <= 0.30 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Current non-housing debt-payment ratio',
+    pc(debtPaymentRatio),
+    debtStatus,
+    `${fmtMoney(currentDebtPaymentAnnual)}/yr of payments on tracked non-mortgage debts active today divided by current gross household income. Future-dated debts and housing costs are excluded because housing is measured separately.`,
+    'debt', 'Review debts'
+  ));
+
+  const housingStatus = housingRatio == null ? 'info' : housingRatio <= 0.25 ? 'strong' : housingRatio <= 0.35 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Current housing-cost ratio',
+    pc(housingRatio),
+    housingStatus,
+    `${fmtMoney(currentRow.housingCost || 0)}/yr of modeled housing cost divided by current gross household income.`,
+    'housing', 'Review housing'
+  ));
+
+  const taxStatus = taxTotal <= 0 ? 'info' : meaningfulTaxBuckets >= 2 && dominantTaxShare <= 0.70 ? 'strong' : meaningfulTaxBuckets >= 2 && dominantTaxShare <= 0.85 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Tax diversification',
+    taxTotal > 0 ? Math.round(taxShares[0] * 100) + '% tax-deferred' : '—',
+    taxStatus,
+    taxTotal > 0
+      ? `${Math.round(taxShares[0] * 100)}% tax-deferred, ${Math.round(taxShares[1] * 100)}% Roth, and ${Math.round(taxShares[2] * 100)}% taxable/cash. This measures flexibility, not investment allocation.`
+      : 'No tracked retirement or taxable savings balances are available.',
+    'taxes', 'Review tax structure'
+  ));
+
+  if (inputs.survivorshipDeathAge > 0) {
+    metrics.push(metric(
+      'Surviving-spouse income coverage',
+      pc(survivorCoverage),
+      'info',
+      `Separate what-if only: guaranteed survivor income compared with survivor spending in the first full modeled year after the assumed death at age ${inputs.survivorshipDeathAge}. This does not affect the main plan.`,
+      'survivorship', 'Open separate survivorship analysis', 'Separate'
+    ));
+  } else {
+    metrics.push(metric(
+      'Surviving-spouse income coverage',
+      'Not set',
+      'info',
+      'This remains separate from the main plan. Set an assumed age on the Survivorship page to calculate income coverage for the surviving spouse.',
+      'survivorship', 'Set survivorship assumptions', 'Separate'
+    ));
+  }
+
+  const earliestStatus = earliestDeterministicRetirementAge == null
+    ? 'attention'
+    : earliestDeterministicRetirementAge <= inputs.retirementAge ? 'strong'
+      : earliestDeterministicRetirementAge <= inputs.retirementAge + 2 ? 'watch' : 'attention';
+  metrics.push(metric(
+    'Earliest deterministic retirement age',
+    earliestDeterministicRetirementAge == null ? 'Beyond ' + retirementSearchEnd : 'Age ' + earliestDeterministicRetirementAge,
+    earliestStatus,
+    `First tested age whose deterministic projection avoids a shortfall through household longevity under the active ${spendingBasis === 'jobloss' ? 'Job Loss' : spendingBasis === 'mustspend' ? 'Must Spend' : 'Like to Spend'} basis. Monte Carlo confidence may still be lower.`,
+    'explorers', 'Stress-test retirement timing'
+  ));
+
+  const conversionStatus = taxDeferred > 0 && conversionWindowYears > 0 ? (tradShare >= 0.50 ? 'watch' : 'info') : 'info';
+  metrics.push(metric(
+    'Potential Roth-conversion window',
+    conversionWindowYears > 0 ? conversionWindowYears.toFixed(0) + ' years' : 'No pre-SS window',
+    conversionStatus,
+    taxDeferred > 0 && conversionWindowYears > 0
+      ? `There are approximately ${conversionWindowYears.toFixed(0)} years from retirement until the earlier of Social Security or RMD age, with ${fmtMoney(taxDeferred)} currently tax-deferred. This flags a period to test—not an instruction to convert.`
+      : 'The simple retirement-to-Social-Security/RMD screen does not identify a clear window. Other conversion opportunities may still exist.',
+    'taxes', 'Test conversions', conversionStatus === 'watch' ? 'Watch' : 'Review'
+  ));
+
+  const strong = metrics.filter(m => m.status === 'strong');
+  const watch = metrics.filter(m => m.status === 'watch');
+  const attention = metrics.filter(m => m.status === 'attention');
+  const plural = (count, one, many) => count === 1 ? one : many;
+  summaryLineEl.textContent = `${strong.length} ${plural(strong.length, 'strength', 'strengths')} • ${watch.length} to watch • ${attention.length} ${plural(attention.length, 'needs attention', 'need attention')}`;
+  const priority = attention.length ? attention : watch;
+  const strengthText = strong.length ? `Strong areas: ${strong.slice(0, 3).map(m => m.title).join(', ')}.` : 'No measure is currently rated Strong.';
+  const priorityText = priority.length ? ` First review: ${priority.slice(0, 3).map(m => m.title).join(', ')}.` : ' No immediate diagnostic warnings were identified.';
+  summaryDetailEl.textContent = `${strengthText}${priorityText} Main-plan confidence remains ${Math.round(confidenceScore)}% on Overview and is intentionally not blended into a wellness score.`;
+
+  metricsEl.innerHTML = metrics.map(m => `
+    <div class="wellness-metric ${m.status}">
+      <div class="wellness-metric-head">
+        <div class="wellness-metric-title">${m.title}</div>
+        <span class="wellness-status ${m.status}">${m.statusLabel}</span>
+      </div>
+      <div class="wellness-value">${m.value}</div>
+      <div class="wellness-detail">${m.detail}</div>
+      <button type="button" class="wellness-link" onclick="showPage('${m.page}')">${m.action} →</button>
+    </div>
+  `).join('');
+}
+
 function render() {
   els('spousalBenefitFields').style.display = els('spouseWorks').checked ? 'none' : 'grid';
   els('buyHomeFields').style.display = els('buyHome').checked ? 'block' : 'none';
@@ -11476,6 +11755,7 @@ function render() {
   // The enhanced score remains the primary conservative score; this reference makes comparisons with
   // mainstream planners easier without weakening the underlying household test.
   const standardComparableScore = runMonteCarlo({ ...inputs, enhancedMonteCarlo:false }, ctx, 1000);
+  renderFinancialWellness(inputs, ctx, result, score);
 
   // Mini Monte Carlo scores for all three spending bases (Job Loss / Must Spend / Like to Spend), shown
   // right in the header toggle so you can compare all three at a glance without switching the active one.
