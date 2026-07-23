@@ -436,10 +436,26 @@
   .score-text p{margin:0; font-size:17px; color:var(--muted); line-height:1.55;}
 
   .compare-box{
-    background:var(--teal-light); border:1px solid #c9e4de; border-radius:var(--radius);
-    padding:14px 18px; font-size:17px; color:var(--navy); margin-bottom:14px; line-height:1.7;
+    margin-bottom:14px;
   }
-  .compare-box b{color:var(--teal);}
+  .retirement-timing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;}
+  .retirement-timing-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:17px 18px;box-shadow:0 3px 12px rgba(20,42,62,.06);min-width:0;}
+  .retirement-timing-card.current{border:2px solid var(--teal);padding:16px 17px;box-shadow:0 4px 16px rgba(31,122,108,.14);}
+  .retirement-timing-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--border);}
+  .retirement-timing-age{font-size:20px;font-weight:800;color:var(--navy);}
+  .retirement-timing-badge{border-radius:999px;background:var(--teal-light);color:var(--teal);padding:4px 8px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}
+  .retirement-timing-score-label{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+  .retirement-timing-score{font-size:34px;font-weight:850;line-height:1.1;margin:4px 0 15px;color:var(--navy);}
+  .retirement-timing-score.strong{color:var(--good);}
+  .retirement-timing-score.good{color:#3f9c7c;}
+  .retirement-timing-score.caution{color:#c07a1f;}
+  .retirement-timing-score.risk{color:var(--danger);}
+  .retirement-timing-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0;border-top:1px solid #edf1f3;font-size:14px;line-height:1.35;}
+  .retirement-timing-row span{color:var(--muted);}
+  .retirement-timing-row strong{color:var(--navy);text-align:right;font-size:14px;}
+  .retirement-timing-longevity{margin-top:12px;border-radius:8px;padding:9px 10px;font-size:13.5px;font-weight:700;text-align:center;background:#e8f5ef;color:var(--good);}
+  .retirement-timing-longevity.warn{background:#fdebea;color:var(--danger);}
+  @media (max-width:560px){.retirement-timing-grid{grid-template-columns:1fr;}.retirement-timing-card{padding:16px;}.retirement-timing-card.current{padding:15px;}}
 
   .chart-wrap{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;}
   .chart-wrap h2{font-size:20px; margin:0 0 6px; color:var(--navy);}
@@ -11915,15 +11931,25 @@ function render() {
     score: runMonteCarlo({...inputs, retirementAge:age}, ctx, 1000)
   }));
   els('compareBox').innerHTML = `
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:14px; text-align:center;">
-      ${ageRuns.map(r => `
-        <div>
-          <b style="font-size:17px;">Retire at ${r.age}</b>
-          <div style="margin-top:6px;">Investable: ${fmtMoneyK(dv(r.det.investableAtRetirement, r.age, inputs))}</div>
-          <div>Confidence: ${Math.round(r.score)}%</div>
-          <div>${r.det.depletionAge ? 'Runs out at ' + r.det.depletionAge : 'Lasts to ' + lifeExpectancy}</div>
-        </div>
-      `).join('')}
+    <div class="retirement-timing-grid">
+      ${ageRuns.map(r => {
+        const endingRow = r.det.rows && r.det.rows.length ? r.det.rows[r.det.rows.length - 1] : null;
+        const endingNetWorth = endingRow ? endingRow.netWorth : 0;
+        const scoreClass = r.score >= 80 ? 'strong' : r.score >= 60 ? 'good' : r.score >= 40 ? 'caution' : 'risk';
+        const isCurrent = r.age === inputs.retirementAge;
+        return `
+        <div class="retirement-timing-card ${isCurrent ? 'current' : ''}">
+          <div class="retirement-timing-head">
+            <div class="retirement-timing-age">Retire at ${r.age}</div>
+            ${isCurrent ? '<span class="retirement-timing-badge">Current plan</span>' : ''}
+          </div>
+          <div class="retirement-timing-score-label">Confidence score</div>
+          <div class="retirement-timing-score ${scoreClass}">${Math.round(r.score)}%</div>
+          <div class="retirement-timing-row"><span>Investable at retirement</span><strong>${fmtMoneyK(dv(r.det.investableAtRetirement, r.age, inputs))}</strong></div>
+          <div class="retirement-timing-row"><span>Ending net worth</span><strong>${fmtMoneyK(dv(endingNetWorth, endingRow ? endingRow.age : r.age, inputs))}</strong></div>
+          <div class="retirement-timing-longevity ${r.det.depletionAge ? 'warn' : ''}">${r.det.depletionAge ? 'Runs out at age ' + r.det.depletionAge : 'Lasts through age ' + lifeExpectancy}</div>
+        </div>`;
+      }).join('')}
     </div>`;
 
   // Monte Carlo failure diagnostics + historical crisis stress test
