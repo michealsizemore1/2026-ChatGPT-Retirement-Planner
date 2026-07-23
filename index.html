@@ -749,14 +749,14 @@
     <span>Sections</span>
     <button class="sidenav-close" onclick="closeMenu()" aria-label="Close menu">×</button>
   </div>
-  <div class="nav-dropdown open" id="myPlanNavGroup">
-    <button type="button" class="nav-item nav-dropdown-toggle active" id="myPlanNavToggle" onclick="toggleMyPlanMenu(event)"><span>My Plan</span><span class="nav-caret">&#9662;</span></button>
+  <div class="nav-dropdown" id="myPlanNavGroup">
+    <button type="button" class="nav-item nav-dropdown-toggle" id="myPlanNavToggle" onclick="toggleMyPlanMenu(event)"><span>My Plan</span><span class="nav-caret">&#9662;</span></button>
     <div class="nav-submenu" id="myPlanSubmenu">
-      <button type="button" class="nav-subitem active" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</button>
       <button type="button" class="nav-subitem" data-page="personal" onclick="showPage('personal')">Personal &amp; Family</button>
       <button type="button" class="nav-subitem" data-page="income" onclick="showPage('income')">Income</button>
       <button type="button" class="nav-subitem" data-page="expenses" onclick="showPage('expenses')">Expenses</button>
-      <button type="button" class="nav-subitem" data-page="accounts" onclick="showPage('accounts')">Accounts &amp; Cards</button>
+      <button type="button" class="nav-subitem" data-page="insurance" onclick="showPage('insurance')">Insurance</button>
+      <button type="button" class="nav-subitem" data-page="investments" onclick="showPage('investments')">Investments</button>
       <button type="button" class="nav-subitem" data-page="assumptions" onclick="showPage('assumptions')">Assumptions &amp; Guardrails</button>
       <button type="button" class="nav-subitem" data-page="estate" onclick="showPage('estate')">Estate Planning</button>
       <button type="button" class="nav-subitem" data-page="debt" onclick="showPage('debt')">Debt</button>
@@ -767,6 +767,8 @@
   </div>
   <div class="nav-item" data-page="vault" onclick="showPage('vault')">Document Vault</div>
   <div class="nav-item" data-page="coach" onclick="showPage('coach')">Coach</div>
+  <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</div>
+  <div class="nav-item" data-page="accounts" onclick="showPage('accounts')">Accounts &amp; Cards</div>
   <div class="nav-dropdown" id="insightsNavGroup">
     <button type="button" class="nav-item nav-dropdown-toggle" id="insightsNavToggle" onclick="toggleInsightsMenu(event)"><span>Insights</span><span class="nav-caret">&#9662;</span></button>
     <div class="nav-submenu" id="insightsSubmenu">
@@ -790,8 +792,6 @@
       <button type="button" class="nav-subitem" data-explorer-nav="sensitivity" onclick="showExplorerAnalysis('sensitivity')">Sensitivity Analysis</button>
     </div>
   </div>
-  <div class="nav-item" data-page="insurance" onclick="showPage('insurance')">Insurance</div>
-  <div class="nav-item" data-page="investments" onclick="showPage('investments')">Investments</div>
   <div class="nav-item" data-page="survivorship" onclick="showPage('survivorship')">Survivorship</div>
   <div class="nav-item" data-page="settings" onclick="showPage('settings')">Settings</div>
 </nav>
@@ -4973,7 +4973,7 @@ const PAGE_LABELS = {
   taxes:'Taxes', assumptions:'Assumptions & Guardrails',
   explorers:'Explorers', coach:'Coach', settings:'Settings'
 };
-const MY_PLAN_PAGES = ['dashboard','personal','income','expenses','accounts','assumptions','estate','debt','moneyflows','medical','housing'];
+const MY_PLAN_PAGES = ['personal','income','expenses','insurance','investments','assumptions','estate','debt','moneyflows','medical','housing'];
 const INSIGHTS_PAGES = ['incomeexpenses','gap','savings','taxes'];
 const EXPLORER_ANALYSIS_KEY = 'retirementPlannerExplorerAnalysis_v1';
 const EXPLORER_ANALYSES = {
