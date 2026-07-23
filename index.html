@@ -5199,7 +5199,11 @@ function showPage(pageId, persistPage = true) {
   // below; none of them should be able to prevent the navigation choice from being remembered.
   if (persistPage) {
     try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
-    const pageHash = '#' + encodeURIComponent(pageId);
+    // Explorers is a two-part route: the page plus the exact analysis. Never collapse it to plain
+    // #explorers, because a refresh during that brief state would lose the selected subsection.
+    const pageHash = pageId === 'explorers'
+      ? '#explorers/' + encodeURIComponent(isKnownExplorerAnalysis(selectedExplorerAnalysis) ? selectedExplorerAnalysis : readInitialExplorerAnalysis())
+      : '#' + encodeURIComponent(pageId);
     if (location.hash !== pageHash) {
       try { history.replaceState(null, '', pageHash); }
       catch (e) { try { location.hash = pageHash; } catch (ignored) {} }
@@ -12114,7 +12118,12 @@ try {
 // and the still-active Dashboard was left on screen even though the correct section had been saved.
 const initialPageAtBoot = readInitialPage();
 const initialExplorerAnalysisAtBoot = readInitialExplorerAnalysis();
-if (initialPageAtBoot) activatePageShell(initialPageAtBoot);
+if (initialPageAtBoot) {
+  activatePageShell(initialPageAtBoot);
+  // Set the Explorer subsection before render() builds and saves the first snapshot. Otherwise the
+  // default "whatif" selection can be written back during startup before the saved route is restored.
+  if (initialPageAtBoot === 'explorers') activateExplorerAnalysis(initialExplorerAnalysisAtBoot, false, false);
+}
 
 renderExpenseRows();
 renderBrokeragePieRows();
@@ -12161,6 +12170,9 @@ function persistBeforeLeaving() {
   try {
     if (activePage && activePage.dataset.page) {
       localStorage.setItem(ACTIVE_PAGE_KEY, activePage.dataset.page);
+      if (activePage.dataset.page === 'explorers' && isKnownExplorerAnalysis(selectedExplorerAnalysis)) {
+        localStorage.setItem(EXPLORER_ANALYSIS_KEY, selectedExplorerAnalysis);
+      }
       const pageHash = activePage.dataset.page === 'explorers' && isKnownExplorerAnalysis(selectedExplorerAnalysis)
         ? '#explorers/' + encodeURIComponent(selectedExplorerAnalysis)
         : '#' + encodeURIComponent(activePage.dataset.page);
@@ -12188,7 +12200,7 @@ render();
 
 // Finish any page-specific setup after the main render. The section itself was already activated above,
 // so it remains correct even if an unrelated startup calculation fails before this point.
-if (initialPageAtBoot) showPage(initialPageAtBoot);
+if (initialPageAtBoot) showPage(initialPageAtBoot, false);
 if (initialPageAtBoot === 'explorers') activateExplorerAnalysis(initialExplorerAnalysisAtBoot, true, false);
 
 // Browser Back/Forward can change only the section marker; keep the visible page in step with it.
