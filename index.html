@@ -824,6 +824,7 @@
     <button type="button" class="nav-item nav-dropdown-toggle" data-page="explorers" onclick="toggleExplorerMenu(event)"><span class="nav-label"><svg class="nav-icon" aria-hidden="true"><use href="#navIconExplorers"></use></svg><span>Explorers</span></span><span class="nav-caret">&#9662;</span></button>
     <div class="nav-submenu" id="explorerSubmenu">
       <button type="button" class="nav-subitem" data-explorer-nav="whatif" onclick="showExplorerAnalysis('whatif')">What If I...</button>
+      <button type="button" class="nav-subitem" data-explorer-nav="retirementtiming" onclick="showExplorerAnalysis('retirementtiming')">Retirement Timing</button>
       <button type="button" class="nav-subitem" data-explorer-nav="market" onclick="showExplorerAnalysis('market')">Market Explorer</button>
       <button type="button" class="nav-subitem" data-explorer-nav="allocation" onclick="showExplorerAnalysis('allocation')">Allocation Explorer</button>
       <button type="button" class="nav-subitem" data-explorer-nav="historical" onclick="showExplorerAnalysis('historical')">Historical Backtest</button>
@@ -870,7 +871,6 @@
 
       <div class="results-grid" id="statCards"></div>
 
-      <div class="compare-box" id="compareBox"></div>
       <div id="mcDiagnosticsCard" style="margin:4px 0;"></div>
       <div id="crisisStressCard" style="margin:4px 0;"></div>
 
@@ -1841,6 +1841,12 @@
         <p style="font-size:15.5px;color:var(--muted);margin:0;">"Savings" here is your investable balance plus cash (TSP, brokerage, checking/savings/HYSA) — it doesn't include home equity.</p>
       </div>
 
+      <div class="card" data-explorer-analysis="retirementtiming">
+        <h3 onclick="toggleCard(this)">Retirement Timing<span class="sub-label">Compare retiring at ages 55 through 59</span></h3>
+        <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);line-height:1.55;">Runs the same complete plan at five possible retirement ages so you can compare investable savings, deterministic longevity, and Monte Carlo confidence. This is analysis only and does not change your selected retirement age.</p>
+        <div class="compare-box" id="compareBox"></div>
+      </div>
+
       <div class="card" data-explorer-analysis="market">
         <h3 onclick="toggleCard(this)">Market Explorer<span class="sub-label">Downturn stress-tests with a Chance-of-Success readout</span></h3>
         <p style="margin:0 0 16px;font-size:16.5px;color:var(--muted);">What if you experience a market downturn or a sequence of poor returns around your retirement date? See whether your portfolio will sustain withdrawals to meet your financial goals.</p>
@@ -1967,7 +1973,7 @@
       <div class="page-header"><h2>Coach</h2><p>Automated suggestions based on your current plan, plus an optional AI chat for open-ended questions.</p></div>
 
       <div class="card">
-        <h3 onclick="toggleCard(this)">Suggestions</h3>
+        <h3 onclick="toggleCard(this)">Next Steps<span class="sub-label">Use Financial Wellness to identify priorities, then test or discuss them here</span></h3>
         <div id="coachTips"></div>
       </div>
 
@@ -5035,7 +5041,7 @@ const MY_PLAN_PAGES = ['personal','income','expenses','insurance','investments',
 const INSIGHTS_PAGES = ['incomeexpenses','gap','savings','taxes'];
 const EXPLORER_ANALYSIS_KEY = 'retirementPlannerExplorerAnalysis_v1';
 const EXPLORER_ANALYSES = {
-  whatif:'What If I...', market:'Market Explorer', allocation:'Allocation Explorer',
+  whatif:'What If I...', retirementtiming:'Retirement Timing', market:'Market Explorer', allocation:'Allocation Explorer',
   historical:'Historical Backtest', socialsecurity:'Social Security Claiming',
   comparison:'Scenario Comparison', whatifresults:'What-If Scenario Results',
   marketrisk:'Market Risk Scenarios', sensitivity:'Sensitivity Analysis'
@@ -10400,12 +10406,14 @@ function generateCoachSuggestions(inputs, ctx, result, score) {
 function renderCoachTips() {
   const container = els('coachTips');
   if (!container) return;
-  const inputs = readInputs();
-  const ctx = buildContext(inputs);
-  const result = projectRun(inputs, ctx, false);
-  const score = runMonteCarlo(inputs, ctx, 300);
-  const tips = generateCoachSuggestions(inputs, ctx, result, score);
-  container.innerHTML = tips.map(t => `<div class="tip ${t.severity}"><span class="tip-icon">${t.icon}</span><span class="tip-text">${t.text}</span></div>`).join('');
+  const wellnessSummary = els('wellnessSummaryDetail') ? els('wellnessSummaryDetail').textContent : '';
+  container.innerHTML = `
+    <p style="font-size:16px;color:var(--muted);line-height:1.55;margin:0 0 14px;">${wellnessSummary || 'Financial Wellness identifies the plan areas that deserve attention without blending them into one score.'}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+      <button type="button" class="add-btn" onclick="showPage('wellness')">Review Financial Wellness</button>
+      <button type="button" class="add-btn" onclick="showExplorerAnalysis('retirementtiming')">Test Retirement Timing</button>
+      <button type="button" class="add-btn" onclick="toggleFloatingAi(true)">Discuss With Ask AI</button>
+    </div>`;
 }
 
 // ---------- Coach: optional AI chat (direct browser call to Anthropic API, only if a key is set) ----------
@@ -11862,7 +11870,6 @@ function render() {
     <div class="stat"><div class="label">Net worth today (excluding Checking)</div><div class="value">${fmtMoneyK(netWorthToday)}</div></div>
     <div class="stat"><div class="label">Net worth at retirement</div><div class="value">${fmtMoneyK(dv(netWorthAtRetirement, retirementAge, inputs))}</div></div>
     <div class="stat"><div class="label">Ending balance at spouse's longevity (age ${inputs.spouseLifeExpectancy})</div><div class="value">${fmtMoneyK(dv(spouseEndingBalance, spouseLongevityRow ? spouseLongevityRow.age : retirementAge, inputs))}</div></div>
-    <div class="stat ${survivorshipClass}"><div class="label">${survivorshipLabel}</div><div class="value">${survivorshipValue}</div></div>
     <div class="stat"><div class="label">Average retirement withdrawal rate<span class="sub-label" style="display:block; text-transform:none; font-weight:400; font-size:13.5px; margin-top:2px;">${spendingBasis === 'jobloss' ? 'Job Loss' : spendingBasis === 'mustspend' ? 'Must Spend' : 'Like to Spend'} basis</span></div><div class="value">${initialWithdrawalRate != null ? (initialWithdrawalRate*100).toFixed(1)+'%' : '—'}</div></div>
   `;
 
