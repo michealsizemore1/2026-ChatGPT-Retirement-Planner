@@ -324,8 +324,8 @@
   }
   .row-header{display:grid; gap:8px; margin-bottom:6px; font-size:16.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em;}
   .row-header.cols-2{grid-template-columns:1.3fr 0.9fr 26px;}
-  .row-header.cols-pie{grid-template-columns:1.05fr 0.65fr 0.85fr 0.55fr 26px;}
-  .row-item.pie-row{grid-template-columns:1.05fr 0.65fr 0.85fr 0.55fr 26px;}
+  .row-header.cols-pie{grid-template-columns:1.05fr 0.62fr 0.78fr 0.78fr 0.52fr 26px;}
+  .row-item.pie-row{grid-template-columns:1.05fr 0.62fr 0.78fr 0.78fr 0.52fr 26px;}
   .row-header.cols-debt{grid-template-columns:1.1fr 0.8fr 0.55fr 0.4fr 0.45fr 0.45fr 0.55fr 0.6fr 0.5fr 26px;}
   .row-header.cols-tx{grid-template-columns:0.85fr 1.1fr 0.65fr 0.9fr 0.65fr 26px;}
   .row-header.cols-contrib{grid-template-columns:1.6fr 0.9fr;}
@@ -1249,12 +1249,12 @@
       </div>
 
       <div class="card">
-        <h3 onclick="toggleCard(this)">Brokerage (M1 Finance)<span class="sub-label">Each pie tracked separately; they sum to one taxable balance for the projection</span></h3>
-        <div class="row-header cols-pie"><span>Pie name</span><span>Balance ($)</span><span>Risk profile</span><span>Fixed rate</span><span></span></div>
+        <h3 onclick="toggleCard(this)">M1 Finance Accounts<span class="sub-label">Track each pie as either a taxable investment account or a Roth IRA</span></h3>
+        <div class="row-header cols-pie"><span>Pie name</span><span>Balance ($)</span><span>Account type</span><span>Risk profile</span><span>Fixed rate</span><span></span></div>
         <div class="row-list" id="brokeragePieRows"></div>
         <button class="add-btn" onclick="addBrokeragePie()">+ Add pie</button>
-        <div class="total-row"><span>Total brokerage</span><span id="brokeragePieTotal">$0</span></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">"Market-linked" pies grow using the return/volatility assumptions on the Assumptions page (same risk as your TSP). "Cash-like" pies (e.g. a T-bills/SGOV bucket) instead grow at their own fixed rate every year, with no simulated volatility — matching how HYSA is already treated. Use this for a de-risked bridge fund so it doesn't get shaken around by the same stock-market swings as your equity holdings in the Monte Carlo.</p>
+        <div class="total-row"><span>Total M1 Finance accounts</span><span id="brokeragePieTotal">$0</span></div>
+        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Account type controls taxes: taxable investments use the brokerage taxable-gain setting, while Roth IRA withdrawals are modeled tax-free. Risk profile controls growth: "Market-linked" uses the return/volatility assumptions; "Cash-like" uses its own fixed rate with no simulated volatility. Roth IRA withdrawals are treated as qualified and tax-free; this planner does not separately track contribution basis or the five-year holding rule.</p>
       </div>
 
       <div class="card">
@@ -5764,7 +5764,14 @@ function saveState(includePortableData = false) {
 function applyState(state) {
   if (!state) return false;
   if (Array.isArray(state.expenses)) expenses = state.expenses;
-  if (Array.isArray(state.brokeragePies)) brokeragePies = state.brokeragePies;
+  if (Array.isArray(state.brokeragePies)) {
+    brokeragePies = state.brokeragePies;
+    // Backward-compatible migration for backups that predate account types. The user's
+    // "All Things Bucket" is a Roth IRA; other legacy pies remain taxable unless changed.
+    brokeragePies.forEach(p => {
+      if (!p.accountType) p.accountType = /^all things bucket$/i.test((p.name || '').trim()) ? 'roth_ira' : 'taxable';
+    });
+  }
   if (Array.isArray(state.debts)) debts = state.debts;
   if (Array.isArray(state.futureExpenses)) futureExpenses = state.futureExpenses;
   if (Array.isArray(state.windfalls)) windfalls = state.windfalls;
@@ -6332,13 +6339,17 @@ function addInsurancePolicy() { insurancePolicies.push({ name:'New policy', type
 function removeInsurancePolicy(i) { insurancePolicies.splice(i,1); renderInsuranceRows(); render(); }
 
 // ---------- Brokerage pies (dynamic rows, M1 Finance) ----------
-let brokeragePies = [{"name":"Sequence of Returns Risk (T-Bills)","balance":375,"contribution":300,"riskType":"cash","cashRate":3.56},{"name":"All things Bucket","balance":11857,"contribution":716}];
+let brokeragePies = [{"name":"Sequence of Returns Risk (T-Bills)","balance":375,"contribution":300,"accountType":"taxable","riskType":"cash","cashRate":3.56},{"name":"All things Bucket","balance":11857,"contribution":716,"accountType":"roth_ira","riskType":"equity"}];
 function renderBrokeragePieRows() {
   const container = els('brokeragePieRows');
   container.innerHTML = brokeragePies.map((p,i) => `
     <div class="row-item pie-row">
       <input type="text" value="${p.name}" placeholder="Pie name" oninput="updateBrokeragePie(${i},'name',this.value)">
       <input type="number" value="${p.balance}" step="0.01" oninput="updateBrokeragePie(${i},'balance',this.value)">
+      <select onchange="updateBrokeragePie(${i},'accountType',this.value)">
+        <option value="taxable" ${(p.accountType||'taxable')==='taxable'?'selected':''}>Taxable</option>
+        <option value="roth_ira" ${p.accountType==='roth_ira'?'selected':''}>Roth IRA</option>
+      </select>
       <select onchange="updateBrokeragePie(${i},'riskType',this.value)">
         <option value="equity" ${(p.riskType||'equity')==='equity'?'selected':''}>Market-linked</option>
         <option value="cash" ${p.riskType==='cash'?'selected':''}>Cash-like (fixed)</option>
@@ -6355,10 +6366,10 @@ function updateBrokeragePie(i, field, value) {
   brokeragePies[i][field] = (field==='balance' || field==='cashRate') ? +value : value;
   els('brokeragePieTotal').textContent = fmtMoney(brokeragePies.reduce((s,p) => s + (+p.balance||0), 0));
   if (field === 'name') { renderPieContributionRows(); renderExcessIncomeDestinationOptions(); renderRothConversionSourceOptions(); }
-  if (field === 'riskType') { renderBrokeragePieRows(); }
+  if (field === 'riskType' || field === 'accountType') { renderBrokeragePieRows(); renderWithdrawalOrderRows(); }
   render();
 }
-function addBrokeragePie() { brokeragePies.push({ name:'New pie', balance:1000, contribution:0, riskType:'equity', cashRate:4.5 }); renderBrokeragePieRows(); renderPieContributionRows(); render(); }
+function addBrokeragePie() { brokeragePies.push({ name:'New pie', balance:1000, contribution:0, accountType:'taxable', riskType:'equity', cashRate:4.5 }); renderBrokeragePieRows(); renderPieContributionRows(); render(); }
 function removeBrokeragePie(i) { brokeragePies.splice(i,1); renderBrokeragePieRows(); renderPieContributionRows(); render(); }
 
 // ---------- Excess income savings destination: a single named pie (e.g. a cash-like SGOV pie), not spread across all pies ----------
@@ -6475,7 +6486,8 @@ function withdrawalAccountInfo(key) {
   if (key === 'hysa') return { label: 'HYSA / Cash Reserve', badge: 'Taxable · Savings', balance: +els('hysaBalance').value || 0 };
   const idx = +key.split('_')[1];
   const pie = brokeragePies[idx];
-  return { label: pie ? (pie.name || `Pie ${idx + 1}`) : 'Removed pie', badge: 'Taxable · Investment', balance: pie ? (+pie.balance || 0) : 0 };
+  const isRothIra = pie && pie.accountType === 'roth_ira';
+  return { label: pie ? (pie.name || `Pie ${idx + 1}`) : 'Removed pie', badge: isRothIra ? 'Roth · Roth IRA' : 'Taxable · Investment', balance: pie ? (+pie.balance || 0) : 0 };
 }
 
 function setWithdrawalMode(isCustom) {
@@ -6780,6 +6792,7 @@ function readInputs() {
     survivorHousingContinues: els('survivorHousingContinues') ? els('survivorHousingContinues').checked : true,
     brokeragePieBalances: brokeragePies.map(p => +p.balance || 0),
     brokeragePieContributionsMonthly: brokeragePies.map(p => +p.contribution || 0),
+    brokeragePieAccountTypes: brokeragePies.map(p => p.accountType || 'taxable'),
     brokeragePieRiskTypes: brokeragePies.map(p => p.riskType || 'equity'),
     brokeragePieCashRates: brokeragePies.map(p => (+p.cashRate || 4.5)/100),
     // Excluded accounts are dropped here rather than in the engine itself — effectiveWithdrawalOrder
@@ -7145,7 +7158,8 @@ function projectRun(inputs, ctx, randomize, shocks) {
         else if (key.startsWith('pie_')) {
           const idx = +key.slice(4);
           if (balBrokeragePies[idx] !== undefined) {
-            if (taxCtx) {
+            const isRothIra = inputs.brokeragePieAccountTypes && inputs.brokeragePieAccountTypes[idx] === 'roth_ira';
+            if (taxCtx && !isRothIra) {
               const desiredGross = solveGrossForNetTaxablePortion(taxCtx.stackBox.v, remain, ltcgBracketsThisYear, inputs.idahoRate, inputs.brokerageTaxablePct);
               const take = Math.min(desiredGross, Math.max(0, balBrokeragePies[idx]));
               const taxAmt = taxOwedOnTaxablePortion(taxCtx.stackBox.v, take, ltcgBracketsThisYear, inputs.idahoRate, inputs.brokerageTaxablePct);
@@ -7717,7 +7731,14 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // instead of one flat rate applied to the whole withdrawal. Roth and HYSA are already after-tax.
       const acctTaxInfo = { trad: { brackets: federalBracketsThisYear, flatAdd: inputs.idahoRate + earlyPenalty } };
       const bal = { trad: tradGrown, roth: rothGrown, hysa: hysaGrown };
-      brokPiesGrown.forEach((b, i) => { bal['pie_'+i] = b; acctTaxInfo['pie_'+i] = { brackets: ltcgBracketsThisYear, flatAdd: inputs.idahoRate, taxablePct: inputs.brokerageTaxablePct }; });
+      brokPiesGrown.forEach((b, i) => {
+        bal['pie_'+i] = b;
+        // Roth IRA pies are after-tax accounts, so they follow the same tax-free takeFrom()
+        // path as Roth TSP/HYSA rather than the taxable brokerage gross-up path.
+        if (!inputs.brokeragePieAccountTypes || inputs.brokeragePieAccountTypes[i] !== 'roth_ira') {
+          acctTaxInfo['pie_'+i] = { brackets: ltcgBracketsThisYear, flatAdd: inputs.idahoRate, taxablePct: inputs.brokerageTaxablePct };
+        }
+      });
       const takeFrom = (key, desiredNet) => {
         if (desiredNet <= 0 || bal[key] === undefined) return;
         const info = acctTaxInfo[key];
@@ -7892,7 +7913,8 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // since cost basis isn't tracked — treated the same way here for consistency, rather than counting
       // it as taxable for the withdrawal's own tax bill but invisible to MAGI/IRMAA) — forward as the
       // basis for next year's IRMAA tier.
-      const brokerageWithdrawalTotal = balBrokeragePies.reduce((s, _, i) => s + (withdrawalByAccount['pie_'+i] || 0), 0);
+      const brokerageWithdrawalTotal = balBrokeragePies.reduce((s, _, i) =>
+        s + ((!inputs.brokeragePieAccountTypes || inputs.brokeragePieAccountTypes[i] !== 'roth_ira') ? (withdrawalByAccount['pie_'+i] || 0) : 0), 0);
       magiHistory[y] = Math.max(0, taxableGuaranteed + (withdrawalByAccount.trad || 0) + rothConversionAmount + brokerageWithdrawalTotal * inputs.brokerageTaxablePct);
 
       const endInvestable = balTrad + balRoth + sumPies(balBrokeragePies);
@@ -9090,15 +9112,18 @@ function renderInheritedAccountBreakdown(inputs, rows) {
 
   const trad = Math.max(0, last.balTrad || 0);
   const roth = Math.max(0, last.balRoth || 0);
-  const brokerage = Math.max(0, sumPies(last.balBrokeragePies || []));
+  const taxableBrokerage = Math.max(0, (last.balBrokeragePies || []).reduce((s, b, i) =>
+    s + ((!inputs.brokeragePieAccountTypes || inputs.brokeragePieAccountTypes[i] !== 'roth_ira') ? b : 0), 0));
+  const rothIra = Math.max(0, (last.balBrokeragePies || []).reduce((s, b, i) =>
+    s + ((inputs.brokeragePieAccountTypes && inputs.brokeragePieAccountTypes[i] === 'roth_ira') ? b : 0), 0));
   const cash = Math.max(0, last.cash || 0);
   const homeEquity = Math.max(0, last.homeEquity || 0);
   const debt = Math.max(0, last.debtBalance || 0);
 
   const tradTaxOwed = trad * heirRate;
   const tradAfterTax = trad - tradTaxOwed;
-  const grossEstate = trad + roth + brokerage + cash + homeEquity;
-  const afterTaxEstate = tradAfterTax + roth + brokerage + cash + homeEquity - debt;
+  const grossEstate = trad + roth + rothIra + taxableBrokerage + cash + homeEquity;
+  const afterTaxEstate = tradAfterTax + roth + rothIra + taxableBrokerage + cash + homeEquity - debt;
   const d = v => dv(v, last.age, inputs);
 
   if (els('heirBreakdownHeadline')) {
@@ -9108,7 +9133,8 @@ function renderInheritedAccountBreakdown(inputs, rows) {
   const rowsData = [
     { label: 'Traditional TSP', gross: trad, tax: tradTaxOwed, net: tradAfterTax, note: `Taxed as ordinary income to heirs over 10 years — ${(heirRate*100).toFixed(0)}% assumed rate` },
     { label: 'Roth TSP', gross: roth, tax: 0, net: roth, note: 'Tax-free to heirs' },
-    { label: 'Brokerage (taxable)', gross: brokerage, tax: 0, net: brokerage, note: 'Step-up in cost basis at death — no capital gains tax on an immediate sale' },
+    { label: 'Roth IRA', gross: rothIra, tax: 0, net: rothIra, note: 'Tax-free to heirs' },
+    { label: 'Brokerage (taxable)', gross: taxableBrokerage, tax: 0, net: taxableBrokerage, note: 'Step-up in cost basis at death — no capital gains tax on an immediate sale' },
     { label: 'Home equity', gross: homeEquity, tax: 0, net: homeEquity, note: homeEquity > 0 ? 'Step-up in cost basis at death' : 'Not modeling a home purchase' },
     { label: 'Cash (checking/savings/HYSA)', gross: cash, tax: 0, net: cash, note: 'Already after-tax' },
     { label: 'Less: remaining debt', gross: -debt, tax: 0, net: -debt, note: debt > 0 ? 'Paid off before heirs receive the remainder' : 'No debt remaining' }
@@ -9129,9 +9155,9 @@ function renderInheritedAccountBreakdown(inputs, rows) {
 
   const canvas = els('chart_heir_breakdown');
   if (canvas) {
-    const labels = ['Traditional TSP', 'Roth TSP', 'Brokerage', 'Home equity', 'Cash'];
-    const grossVals = [trad, roth, brokerage, homeEquity, cash].map(d);
-    const netVals = [tradAfterTax, roth, brokerage, homeEquity, cash].map(d);
+    const labels = ['Traditional TSP', 'Roth TSP', 'Roth IRA', 'Brokerage', 'Home equity', 'Cash'];
+    const grossVals = [trad, roth, rothIra, taxableBrokerage, homeEquity, cash].map(d);
+    const netVals = [tradAfterTax, roth, rothIra, taxableBrokerage, homeEquity, cash].map(d);
     const config = {
       type: 'bar',
       data: {
@@ -10515,7 +10541,7 @@ function buildPlanSummaryForAI() {
 
   lines.push('\n=== CURRENT BALANCES ===');
   lines.push(`Traditional TSP: ${fmtMoney(inputs.tradTSPBalance)} (contributing ${pct(inputs.tradPct)} of pay). Roth TSP: ${fmtMoney(inputs.rothTSPBalance)} (contributing ${pct(inputs.rothPct)} of pay). Agency match caps at ${pct(inputs.matchCapPct)} of pay.`);
-  lines.push(`Brokerage: ${brokeragePies.length ? brokeragePies.map(p => `${p.name || 'Pie'} ${fmtMoney(p.balance)} (${p.riskType === 'cash' ? 'cash-like, fixed ' + pct((p.cashRate || 4.5) / 100) : 'market-linked'}, contributing $${p.contribution || 0}/mo)`).join('; ') : 'none'}.`);
+  lines.push(`M1 Finance accounts: ${brokeragePies.length ? brokeragePies.map(p => `${p.name || 'Pie'} ${fmtMoney(p.balance)} (${p.accountType === 'roth_ira' ? 'Roth IRA' : 'taxable'}, ${p.riskType === 'cash' ? 'cash-like, fixed ' + pct((p.cashRate || 4.5) / 100) : 'market-linked'}, contributing $${p.contribution || 0}/mo)`).join('; ') : 'none'}.`);
   lines.push(`Cash: Checking ${fmtMoney(inputs.checkingBalance)}, Savings ${fmtMoney(inputs.savingsBalance)}, HYSA ${fmtMoney(inputs.hysaBalance)} (HYSA APY ${pct(inputs.hysaRate)}, Checking/Savings APY ${pct(inputs.cashRate)}).`);
 
   lines.push('\n=== GUARANTEED INCOME ===');
