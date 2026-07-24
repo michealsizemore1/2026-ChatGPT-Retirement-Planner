@@ -9587,6 +9587,36 @@ function findAgeIndex(chart, age) {
   return ds.data.findIndex(pt => pt && typeof pt === 'object' && pt.x === age);
 }
 
+// Converts the clicked bar/point index back to the projection age. Savings charts use
+// labels such as "Age 65"; the point and row fallbacks also support other chart shapes.
+function chartAgeAtIndex(chart, index) {
+  const label = chart && chart.data && chart.data.labels ? chart.data.labels[index] : null;
+  const match = typeof label === 'string' ? label.match(/^Age\s+(\d+)/i) : null;
+  if (match) return +match[1];
+  const ds = chart && chart.data && chart.data.datasets && chart.data.datasets[0];
+  const point = ds && ds.data ? ds.data[index] : null;
+  if (point && typeof point === 'object' && Number.isFinite(+point.x)) return +point.x;
+  const row = lastSnapshot && lastSnapshot.rows ? lastSnapshot.rows[index] : null;
+  return row && Number.isFinite(+row.age) ? +row.age : null;
+}
+
+// Chart.js normally treats a click as a temporary tooltip only. The range navigator
+// needs the clicked age stored in its own state so Previous/Next can move from that
+// exact year instead of still thinking the chart is in Lifetime mode.
+function enableChartRangeClickSelection(config, chartKey) {
+  if (!config || !config.options) return;
+  const originalOnClick = config.options.onClick;
+  config.options.onClick = function(event, elements, chart) {
+    if (typeof originalOnClick === 'function') originalOnClick(event, elements, chart);
+    const hit = elements && elements.length ? elements[0] : null;
+    if (!hit) return;
+    const age = chartAgeAtIndex(chart, hit.index);
+    if (!Number.isFinite(age)) return;
+    chartRangeState[chartKey] = { selectedAge: age };
+    applyChartRange(chartKey);
+  };
+}
+
 // Maps a projection age to its calendar year, using the same currentAge anchor as the
 // Year-by-year detail table, so the range-nav indicator and that table always agree.
 function ageToCalendarYear(age) {
@@ -10364,6 +10394,7 @@ function renderSavingsPage() {
     label: withdrawalAccountInfo(k).label,
     data: rows.map(r => d((r.acctEnd && r.acctEnd[k]) || 0, r.age))
   })), { stacked: true });
+  enableChartRangeClickSelection(balancesConfig, 'savings_balances');
   const balancesCanvas = els('chart_savings_balances');
   if (charts.savings_balances) {
     charts.savings_balances.data = balancesConfig.data; charts.savings_balances.options = balancesConfig.options; charts.savings_balances.update();
@@ -10402,6 +10433,7 @@ function renderSavingsPage() {
     contribSeries.push({ label: 'Returns: ' + withdrawalAccountInfo(k).label, data: rows.map(r => d(acctReturn(r, k), r.age)) });
   });
   const contribConfig = yearlyBarConfig(ages, contribSeries, { stacked: true });
+  enableChartRangeClickSelection(contribConfig, 'savings_contrib');
   const contribCanvas = els('chart_savings_contrib');
   if (charts.savings_contrib) {
     charts.savings_contrib.data = contribConfig.data; charts.savings_contrib.options = contribConfig.options; charts.savings_contrib.update();
@@ -10427,6 +10459,7 @@ function renderSavingsPage() {
     label: 'Withdrawn from: ' + withdrawalAccountInfo(k).label,
     data: rows.map(r => d((r.savingsWithdrawByAccount && r.savingsWithdrawByAccount[k]) || 0, r.age))
   })), { stacked: true });
+  enableChartRangeClickSelection(drawdownConfig, 'savings_drawdowns');
   const drawdownCanvas = els('chart_savings_drawdowns');
   if (charts.savings_drawdowns) {
     charts.savings_drawdowns.data = drawdownConfig.data; charts.savings_drawdowns.options = drawdownConfig.options; charts.savings_drawdowns.update();
