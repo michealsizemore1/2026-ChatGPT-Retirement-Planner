@@ -1254,7 +1254,7 @@
         <div class="row-list" id="brokeragePieRows"></div>
         <button class="add-btn" onclick="addBrokeragePie()">+ Add pie</button>
         <div class="total-row"><span>Total M1 Finance accounts</span><span id="brokeragePieTotal">$0</span></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Account type controls taxes: taxable investments use the brokerage taxable-gain setting, while Roth IRA withdrawals are modeled tax-free. Risk profile controls growth: "Market-linked" uses the return/volatility assumptions; "Cash-like" uses its own fixed rate with no simulated volatility. Roth IRA withdrawals are treated as qualified and tax-free; this planner does not separately track contribution basis or the five-year holding rule.</p>
+        <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Account type and risk profile work together: market-linked taxable investments use the brokerage taxable-gain setting; cash-like taxable investments pay ordinary income tax on interest annually and do not tax principal again at withdrawal; Roth IRA withdrawals are modeled tax-free. "Market-linked" uses the return/volatility assumptions, while "Cash-like" uses its own fixed rate with no simulated volatility. This planner does not separately track Roth IRA contribution basis or the five-year holding rule.</p>
       </div>
 
       <div class="card">
@@ -1687,8 +1687,8 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Federal<span class="sub-label">2026 brackets, Married Filing Jointly (10/12/22/24/32/35/37%)</span></h3>
         <div class="field"><label>Standard deduction ($/yr, MFJ)</label><input type="number" id="stdDeduction" value="32200" step="100"></div>
-        <div class="field"><label>Taxable gain portion of brokerage withdrawals (%)</label><input type="number" id="brokerageTaxablePct" value="100" min="0" max="100" step="1"></div>
-        <p style="font-size:15.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Set this to the estimated percentage of each brokerage sale that is gain rather than your original cost basis. It remains at 100% by default to preserve the planner's conservative treatment until you enter a better estimate.</p>
+        <div class="field"><label>Taxable gain portion of market-linked taxable withdrawals (%)</label><input type="number" id="brokerageTaxablePct" value="100" min="0" max="100" step="1"></div>
+        <p style="font-size:15.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Applies only to sales from market-linked taxable accounts. Cash-like taxable accounts such as T-bills are handled differently: their interest is taxed annually as ordinary income, so their principal is not taxed again when withdrawn. Roth IRA withdrawals are modeled tax-free.</p>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Social Security and spousal benefits use the IRS provisional-income formula (between 0% and 85% taxable); VA disability stays fully tax-free. Both pensions and annuity income are treated as fully taxable.</p>
       </div>
 
@@ -6944,6 +6944,25 @@ function workingFractionOfFinalYear(inputs) {
 }
 // ---------- Brokerage pie helpers: the pool is tracked as one balance per pie, not one lumped sum ----------
 function sumPies(arr) { return arr.reduce((s, b) => s + b, 0); }
+function isRothIraPie(inputs, i) {
+  return !!(inputs.brokeragePieAccountTypes && inputs.brokeragePieAccountTypes[i] === 'roth_ira');
+}
+function isTaxableCashPie(inputs, i) {
+  return !isRothIraPie(inputs, i) && !!(inputs.brokeragePieRiskTypes && inputs.brokeragePieRiskTypes[i] === 'cash');
+}
+function taxableCashInterestForYear(inputs, pieBalances, hysaBalance, savingsBalance, checkingBalance) {
+  const pieInterest = pieBalances.reduce((s, b, i) => {
+    if (!isTaxableCashPie(inputs, i)) return s;
+    const rate = inputs.brokeragePieCashRates ? inputs.brokeragePieCashRates[i] : 0.045;
+    return s + Math.max(0, b) * Math.max(0, rate || 0);
+  }, 0);
+  // HYSA/checking/savings interest is also ordinary taxable interest. Their current rates may be zero,
+  // but keeping them here prevents future balances or rate changes from silently escaping the tax model.
+  return pieInterest
+    + Math.max(0, hysaBalance) * Math.max(0, inputs.hysaRate || 0)
+    + Math.max(0, savingsBalance) * Math.max(0, inputs.cashRate || 0)
+    + Math.max(0, checkingBalance) * Math.max(0, inputs.cashRate || 0);
+}
 // Applies a pooled inflow/outflow across all pies proportionally to their current balance (a positive delta
 // deposits, a negative delta withdraws). Withdrawals "water-fill" over a few rounds so a pie that runs dry
 // hands its unmet share to the others, and every pie is floored at 0. Returns an array (same length/order as
@@ -7158,8 +7177,8 @@ function projectRun(inputs, ctx, randomize, shocks) {
         else if (key.startsWith('pie_')) {
           const idx = +key.slice(4);
           if (balBrokeragePies[idx] !== undefined) {
-            const isRothIra = inputs.brokeragePieAccountTypes && inputs.brokeragePieAccountTypes[idx] === 'roth_ira';
-            if (taxCtx && !isRothIra) {
+            const alreadyAfterTax = isRothIraPie(inputs, idx) || isTaxableCashPie(inputs, idx);
+            if (taxCtx && !alreadyAfterTax) {
               const desiredGross = solveGrossForNetTaxablePortion(taxCtx.stackBox.v, remain, ltcgBracketsThisYear, inputs.idahoRate, inputs.brokerageTaxablePct);
               const take = Math.min(desiredGross, Math.max(0, balBrokeragePies[idx]));
               const taxAmt = taxOwedOnTaxablePortion(taxCtx.stackBox.v, take, ltcgBracketsThisYear, inputs.idahoRate, inputs.brokerageTaxablePct);
@@ -7318,7 +7337,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
     // math at all, just mirrors the value out for the row.
     let irmaaSurchargeMonthlyForRow = 0;
     let tradContribOut=0, rothContribOut=0, matchContribOut=0;
-    let medicalCostAnnual=0, expensesCategoriesAnnual=0, excessIncomeSaved=0, recurringLivingCostThisYear=0;
+    let medicalCostAnnual=0, expensesCategoriesAnnual=0, excessIncomeSaved=0, recurringLivingCostThisYear=0, taxableInterestIncome=0;
     // Taxes page ("Estimated Taxes" chart) — Federal income tax + Idaho state tax (split back out of the
     // blended withdrawal rate below) plus FICA payroll tax (Social Security + Medicare, working years only).
     let federalTaxAnnual=0, stateTaxAnnual=0, ficaTaxAnnual=0;
@@ -7393,7 +7412,10 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // disability routinely starts mid-career), same provisional-income SS treatment as the post-retirement
       // calc below. Purely informational for the chart — doesn't feed back into contributions or spending,
       // matching how FICA above is handled, so it can't disturb the rest of the projection.
-      const otherTaxableWorkingYears = (income - tradContrib) + pensionAmount + pension2Amount + annuityAmount;
+      // T-bill/cash-account interest is taxable as ordinary income in the year earned. It remains
+      // invested in the account, but the associated income tax reduces this year's spendable cash.
+      taxableInterestIncome = taxableCashInterestForYear(inputs, balBrokeragePies, balHYSA, balSavings, balChecking);
+      const otherTaxableWorkingYears = (income - tradContrib) + pensionAmount + pension2Amount + annuityAmount + taxableInterestIncome;
       const taxableWorkingYears = Math.max(0, otherTaxableWorkingYears + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableWorkingYears) - standardDeductionThisYear);
       federalTaxAnnual += taxOwedFromBrackets(taxableWorkingYears, federalBracketsThisYear);
       stateTaxAnnual += idahoTaxOwed(taxableWorkingYears, inputs.idahoRate, inflator);
@@ -7626,7 +7648,8 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // Real federal marginal brackets (2026 MFJ) + Idaho's flat state rate.
       // SS/spousal benefit taxed via the real IRS provisional-income method (taxableSocialSecurity above),
       // not a flat 85% assumption; VA disability and DIC excluded (tax-free); pensions/annuity/SBP fully taxable.
-      const otherTaxableGuaranteed = pensionAmount + pension2Amount + annuityAmount + sbpAmount;
+      taxableInterestIncome = taxableCashInterestForYear(inputs, balBrokeragePies, balHYSA, balSavings, balChecking);
+      const otherTaxableGuaranteed = pensionAmount + pension2Amount + annuityAmount + sbpAmount + taxableInterestIncome;
       const taxableGuaranteed = otherTaxableGuaranteed + taxableSocialSecurity(ssAmount+spousalBenefit, otherTaxableGuaranteed);
       const taxableBeforeWithdrawal = Math.max(0, taxableGuaranteed - standardDeductionThisYear);
       // Guaranteed income doesn't arrive tax-free — actual federal + Idaho tax owed on it (progressive, using the
@@ -7735,7 +7758,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         bal['pie_'+i] = b;
         // Roth IRA pies are after-tax accounts, so they follow the same tax-free takeFrom()
         // path as Roth TSP/HYSA rather than the taxable brokerage gross-up path.
-        if (!inputs.brokeragePieAccountTypes || inputs.brokeragePieAccountTypes[i] !== 'roth_ira') {
+        if (!isRothIraPie(inputs, i) && !isTaxableCashPie(inputs, i)) {
           acctTaxInfo['pie_'+i] = { brackets: ltcgBracketsThisYear, flatAdd: inputs.idahoRate, taxablePct: inputs.brokerageTaxablePct };
         }
       });
@@ -7909,12 +7932,11 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // — taxable guaranteed income, this year's actual gross Traditional TSP withdrawal (which now
       // includes any RMD forced out above), any Roth conversion amount (ordinary income in the year it
       // happens, same as a Trad withdrawal — MAGI doesn't distinguish why money left Traditional TSP),
-      // and brokerage-pie withdrawals (already taxed as a full LTCG-rate gain elsewhere in this engine,
-      // since cost basis isn't tracked — treated the same way here for consistency, rather than counting
-      // it as taxable for the withdrawal's own tax bill but invisible to MAGI/IRMAA) — forward as the
-      // basis for next year's IRMAA tier.
+      // and the user-entered gain portion of market-linked taxable-account sales. Cash-like taxable
+      // interest is already included in taxableGuaranteed above in the year earned, so withdrawing its
+      // principal is deliberately excluded here; Roth IRA withdrawals are excluded as tax-free.
       const brokerageWithdrawalTotal = balBrokeragePies.reduce((s, _, i) =>
-        s + ((!inputs.brokeragePieAccountTypes || inputs.brokeragePieAccountTypes[i] !== 'roth_ira') ? (withdrawalByAccount['pie_'+i] || 0) : 0), 0);
+        s + ((!isRothIraPie(inputs, i) && !isTaxableCashPie(inputs, i)) ? (withdrawalByAccount['pie_'+i] || 0) : 0), 0);
       magiHistory[y] = Math.max(0, taxableGuaranteed + (withdrawalByAccount.trad || 0) + rothConversionAmount + brokerageWithdrawalTotal * inputs.brokerageTaxablePct);
 
       const endInvestable = balTrad + balRoth + sumPies(balBrokeragePies);
@@ -7943,7 +7965,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         medicalCostAnnual, expensesCategoriesAnnual, excessIncomeSaved, insurancePremiumAnnual, essentialFloor, primaryDeceased, recurringLivingCostThisYear,
         fedMarginalRate: fedMarginal, ltcgMarginalRate: age >= inputs.retirementAge ? ltcgMarginal : null,
         irmaaSurchargeMonthly: irmaaSurchargeMonthlyForRow,
-        federalTaxAnnual, stateTaxAnnual, ficaTaxAnnual,
+        federalTaxAnnual, stateTaxAnnual, ficaTaxAnnual, taxableInterestIncome,
         balTrad, balRoth, rothConversionAmount, rothConversionTax,
         balBrokeragePies: balBrokeragePies.slice(), acctBegin, acctEnd, contribByAccount, savingsWithdrawByAccount
       });
