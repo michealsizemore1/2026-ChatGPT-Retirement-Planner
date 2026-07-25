@@ -10123,6 +10123,11 @@ function ensureOrUpdateYearlyChart(pageId, snap) {
   const config = buildYearlyChartConfig(pageId, snap);
   if (!config) return;
   const key = pageId + '_yearly';
+  // Persist the year tapped on every standard yearly chart, not only the three custom Savings
+  // charts. Without this hook, Income vs Expenses displayed the tapped year's temporary tooltip,
+  // but the Back/Next controls still believed the chart was in Lifetime mode and jumped to an
+  // endpoint instead of moving to the adjacent year.
+  enableChartRangeClickSelection(config, key);
   // One bar per projected year (often 40-50 years, "Lifetime" view shows them all at once) — on a
   // narrow phone viewport that's not enough pixels for every bar to stay legible, so give the chart
   // a guaranteed minimum width and let the card scroll horizontally instead of squeezing bars thin.
