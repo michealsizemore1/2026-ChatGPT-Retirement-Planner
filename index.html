@@ -1112,6 +1112,9 @@
         <div class="mini-label">VA Dependency &amp; Indemnity Compensation (DIC)</div>
         <div class="checkbox-row"><input type="checkbox" id="dicEligible" checked><label for="dicEligible">Spouse likely DIC-eligible</label></div>
         <div class="field"><label>DIC amount ($/mo, tax-free — 2026 base rate is $1,699.36)</label><input type="number" id="dicMonthlyAmount" value="1699" step="1"></div>
+        <div class="checkbox-row"><input type="checkbox" id="dicAidAttendanceEnabled" checked><label for="dicAidAttendanceEnabled">Add DIC Aid &amp; Attendance while spouse long-term care is active</label></div>
+        <div class="field"><label>DIC Aid &amp; Attendance addition ($/mo, tax-free — 2026 rate)</label><input type="number" id="dicAidAttendanceMonthly" value="421" min="0" step="1"></div>
+        <div class="note" style="margin-top:8px;"><b>After your death:</b> If she receives DIC and medically qualifies for Aid &amp; Attendance, the current addition is <b>$421 per month</b>. The planner adds it only during the spouse LTC start age and duration entered under Medical. It replaces—not stacks with—the $201.41 dependent-spouse addition paid to you while you are alive. VA approval is required, and the rate should be reviewed annually.</div>
         <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Military SBP pays 55% of your pension and is taxable income to your spouse; Government Civil Service survivor annuities max out at 50%. Both auto-calculate from your entered gross pension amounts and grow at that pension's own yearly increase rate. Your $162 monthly Military SBP deduction is modeled as an Insurance premium while you are alive, so the reference amount above is not added a second time. The Insurance premium stops in the separate survivorship scenario. DIC is tax-free and, since Jan. 2023, no longer offsets SBP.</p>
       </div>
 
@@ -1539,7 +1542,9 @@
             <label>Type of care (Boise, ID area estimates)</label>
             <select id="ltcCareType" onchange="updateLtcCareType(this.value)">
               <option value="custom">Custom amount (enter below)</option>
-              <option value="inhome_parttime" selected>In-home care — part-time (~20 hrs/wk)</option>
+              <option value="inhome_parttime" selected>In-home care — part-time (~20 hrs/wk) — care cost only</option>
+              <option value="inhome_parttime_va">In-home care — part-time (~20 hrs/wk) + VA spouse A&amp;A ($201.41/mo)</option>
+              <option value="va_spouse_aa_only">VA spouse A&amp;A ($201.41/mo) only — no paid-care cost</option>
               <option value="inhome_fulltime">In-home care — full-time (~50+ hrs/wk)</option>
               <option value="assisted_living">Assisted living facility</option>
               <option value="memory_care">Memory care</option>
@@ -1549,6 +1554,10 @@
             </select>
           </div>
           <div class="field"><label>Annual cost (today's $, grows with Medical Inflation)</label><input type="number" id="ltcAnnualCost" value="31200" step="1000"></div>
+          <div id="ltcVaAidReadout" class="note" style="display:none;margin-top:8px;"></div>
+          <div class="note" style="margin-top:8px;">
+            <b>VA spouse Aid &amp; Attendance / SMC add-on:</b> The $201.41 monthly amount is modeled as additional tax-free VA compensation paid to the veteran while a dependent spouse medically qualifies for Aid &amp; Attendance. It has no income or net-worth test, but it is not automatic: VA medical approval is required, it applies only while the spouse meets the criteria, and the 2026 rate should be reviewed each year. This is separate from survivor Aid &amp; Attendance after the veteran's death.
+          </div>
           <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Picking a care type fills in a Boise-area cost estimate below, which you can still edit by hand — it doesn't lock the number. Estimates: in-home care ~$30/hr (Boise-area caregiver rates run roughly $21-$36/hr depending on agency vs. independent hire); assisted living ~$54,000/yr (Boise-area facilities run lower than Idaho's ~$60,000/yr statewide median); memory care ~$72,000/yr; nursing home (semi-private) ~$120,000/yr (Idaho runs above the national median here); family/informal care ~$12,000/yr for incidentals, supplies, and respite care rather than a wage. Source: Genworth/CareScout Cost of Care Survey and local caregiver rate data, today's dollars.</p>
           <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Paid from Roth TSP first, tax-free and outside the normal withdrawal order; if Roth TSP runs short, the remainder pulls from Brokerage, eligible Traditional TSP, HYSA, Savings, and Checking. The plan records a shortfall only after those accessible household resources are exhausted. Your own long-term care is assumed to be covered by insurance and isn't modeled as a portfolio cost — say the word if that's not the case.</p>
         </div>
@@ -5632,8 +5641,11 @@ function syncDateFromAge(ageFieldId, dateFieldId, hintFieldId, basisAgeFieldId) 
 // Sources: Genworth/CareScout Cost of Care Survey (state + Boise-area figures) and current local
 // caregiver rate listings. These are starting points, not locked numbers — the Annual cost field
 // stays freely editable after picking a type.
+const VA_SPOUSE_AA_MONTHLY_2026 = 201.41;
 const LTC_CARE_TYPE_COSTS = {
   inhome_parttime: 31200,   // ~20 hrs/wk at ~$30/hr
+  inhome_parttime_va: 31200,
+  va_spouse_aa_only: 0,
   inhome_fulltime: 78000,   // ~50 hrs/wk at ~$30/hr
   assisted_living: 54000,   // Boise-area facilities run below Idaho's ~$60k/yr statewide median
   memory_care: 72000,       // assisted living + typical memory-care add-on
@@ -5646,6 +5658,24 @@ function updateLtcCareType(type) {
   const cost = LTC_CARE_TYPE_COSTS[type];
   if (cost !== undefined) els('ltcAnnualCost').value = cost;
   render();
+}
+function renderLtcVaAidReadout() {
+  const readout = els('ltcVaAidReadout');
+  const type = els('ltcCareType') ? els('ltcCareType').value : 'custom';
+  if (!readout) return;
+  const includesVaAid = type === 'inhome_parttime_va' || type === 'va_spouse_aa_only';
+  readout.style.display = includesVaAid ? 'block' : 'none';
+  if (!includesVaAid) {
+    readout.textContent = '';
+    return;
+  }
+  const annualBenefit = VA_SPOUSE_AA_MONTHLY_2026 * 12;
+  if (type === 'va_spouse_aa_only') {
+    readout.innerHTML = `<b>Selected model:</b> ${fmtMoney(VA_SPOUSE_AA_MONTHLY_2026)}/month (${fmtMoney(annualBenefit)}/year) of tax-free VA compensation during the selected care period, with no paid-care expense entered.`;
+    return;
+  }
+  const annualCareCost = Math.max(0, +(els('ltcAnnualCost') ? els('ltcAnnualCost').value : 0) || 0);
+  readout.innerHTML = `<b>Selected model:</b> ${fmtMoney(annualCareCost)}/year of part-time in-home care plus ${fmtMoney(VA_SPOUSE_AA_MONTHLY_2026)}/month (${fmtMoney(annualBenefit)}/year) of tax-free VA compensation. First-year net household cost: ${fmtMoney(Math.max(0, annualCareCost - annualBenefit))}, before future medical inflation and VA increases.`;
 }
 
 // ---------- Persistence (localStorage) so values survive a page refresh ----------
@@ -5921,20 +5951,25 @@ function renderSurvivorshipSummary(inputs, rows) {
   // rate, DIC and the SS survivor benefit with SS COLA. Expenses/insurance/medical use General
   // Inflation / Medical Inflation (Assumptions page), same as the real yearly engine.
   const yearsToDeath = Math.max(0, inputs.survivorshipDeathAge - inputs.currentAge);
+  const ageGap = inputs.currentAge - inputs.spouseCurrentAge;
+  const spouseAgeAtDeath = inputs.survivorshipDeathAge - ageGap;
+  const ltcActiveAtDeath = inputs.ltcEnabled && spouseAgeAtDeath >= inputs.ltcStartAge && spouseAgeAtDeath < inputs.ltcStartAge + inputs.ltcDuration;
   const genInflatorToDeath = Math.pow(1 + inputs.inflation, yearsToDeath);
   const medInflatorToDeath = Math.pow(1 + inputs.medicalInflation, yearsToDeath);
   const sbp1Monthly = (inputs.sbp1Enabled ? inputs.sbp1Annual/12 : 0) * Math.pow(1 + inputs.pensionGrowth, yearsToDeath);
   const sbp2Monthly = (inputs.sbp2Enabled ? inputs.sbp2Annual/12 : 0) * Math.pow(1 + inputs.pension2Growth, yearsToDeath);
   const dicMonthly = (inputs.dicEligible ? inputs.dicMonthlyAmount : 0) * Math.pow(1 + inputs.ssCola, yearsToDeath);
+  const dicAidAttendanceMonthly = (inputs.dicEligible && inputs.dicAidAttendanceEnabled && ltcActiveAtDeath)
+    ? inputs.dicAidAttendanceMonthly * Math.pow(1 + inputs.ssCola, yearsToDeath)
+    : 0;
   const ssSurvivorMonthly = (inputs.ssMonthly || 0) * Math.pow(1 + inputs.ssCola, yearsToDeath);
-  const guaranteedMonthly = sbp1Monthly + sbp2Monthly + dicMonthly + ssSurvivorMonthly;
+  const guaranteedMonthly = sbp1Monthly + sbp2Monthly + dicMonthly + dicAidAttendanceMonthly + ssSurvivorMonthly;
+  const ltcMonthly = ltcActiveAtDeath ? inputs.ltcAnnualCost * medInflatorToDeath / 12 : 0;
 
   // Same Tricare/Part B/FEDVIP logic the engine uses once survivorship is active, evaluated at the
   // assumed death age. Tricare's premium drops to $0 once she reaches Medicare age herself — Tricare
   // For Life continues as coverage behind the scenes (wrapping around Medicare), but it has no added
   // premium beyond Part B, so there's no Tricare cost left to count once she's on Medicare.
-  const ageGap = inputs.currentAge - inputs.spouseCurrentAge;
-  const spouseAgeAtDeath = inputs.survivorshipDeathAge - ageGap;
   const spouseOnMedicareAtDeath = spouseAgeAtDeath >= inputs.medicareAge;
   const medicalContinues = inputs.survivorMedicalContinues !== false;
   const medicalMonthlyToday = !medicalContinues ? 0 : (
@@ -5960,7 +5995,7 @@ function renderSurvivorshipSummary(inputs, rows) {
   const deathAgeRow = rows && rows.length ? (rows.find(r => r.age === inputs.survivorshipDeathAge) || rows[rows.length-1]) : null;
   const housingMonthly = inputs.survivorHousingContinues === false ? 0
     : (inputs.survivorHousingAmountOverride != null ? inputs.survivorHousingAmountOverride * genInflatorToDeath : (deathAgeRow ? deathAgeRow.housingCost / 12 : 0));
-  const totalExpensesMonthly = expensesMonthly + housingMonthly + debtMonthly + insuranceMonthly + medicalMonthly;
+  const totalExpensesMonthly = expensesMonthly + housingMonthly + debtMonthly + insuranceMonthly + medicalMonthly + ltcMonthly;
   const drawdownMonthly = Math.max(0, totalExpensesMonthly - guaranteedMonthly);
 
   body.innerHTML = `
@@ -5968,7 +6003,9 @@ function renderSurvivorshipSummary(inputs, rows) {
     <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>SBP — Military Pension</span><span>${inputs.sbp1Enabled ? fmtMoney(sbp1Monthly)+'/mo' : 'Not elected — $0'}</span></div>
     <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>Survivor annuity — Government Civil Service</span><span>${inputs.sbp2Enabled ? fmtMoney(sbp2Monthly)+'/mo' : 'Not elected — $0'}</span></div>
     <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>VA DIC</span><span>${inputs.dicEligible ? fmtMoney(dicMonthly)+'/mo' : 'Not eligible — $0'}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>DIC Aid &amp; Attendance addition</span><span>${!inputs.dicAidAttendanceEnabled ? 'Not selected — $0' : (!inputs.dicEligible ? 'Requires DIC — $0' : (ltcActiveAtDeath ? fmtMoney(dicAidAttendanceMonthly)+'/mo' : `Begins during LTC at spouse age ${inputs.ltcStartAge}`))}</span></div>
     <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>Her Tricare/Part B/FEDVIP (${!medicalContinues ? 'turned off below' : (spouseOnMedicareAtDeath ? 'on Medicare — Part B + FEDVIP only, no Tricare premium' : 'pre-Medicare, Tricare')})</span><span>${fmtMoney(medicalMonthly)}/mo</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>Spouse long-term care</span><span>${ltcActiveAtDeath ? fmtMoney(ltcMonthly)+'/mo' : `Begins at spouse age ${inputs.ltcStartAge}`}</span></div>
     <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>Investment drawdown (covers the rest of spending)</span><span>${fmtMoney(drawdownMonthly)}/mo</span></div>
     <div class="total-row"><span>Total covering spouse's spending</span><span>${fmtMoney(guaranteedMonthly + drawdownMonthly)}/mo</span></div>
     <p style="font-size:16px;color:var(--muted);margin:8px 0 0;line-height:1.5;">This updates the moment you check a box above. To see how the withdrawals affect the confidence score and portfolio longevity, visit the <b>Explorers</b> page — the "You predecease your spouse..." row there reflects these same settings.</p>
@@ -5990,19 +6027,24 @@ function renderSurvivorshipCharts(inputs, rows, ctx) {
   // for the matching text-card version). Guaranteed income streams grow at their own rate, same as the
   // engine: SBP with the underlying pension's growth rate, DIC and the SS survivor benefit with SS COLA.
   const yearsToDeath = Math.max(0, inputs.survivorshipDeathAge - inputs.currentAge);
+  const ageGap = inputs.currentAge - inputs.spouseCurrentAge;
+  const spouseAgeAtDeath = inputs.survivorshipDeathAge - ageGap;
+  const ltcActiveAtDeath = inputs.ltcEnabled && spouseAgeAtDeath >= inputs.ltcStartAge && spouseAgeAtDeath < inputs.ltcStartAge + inputs.ltcDuration;
   const genInflatorToDeath = Math.pow(1 + inputs.inflation, yearsToDeath);
   const medInflatorToDeath = Math.pow(1 + inputs.medicalInflation, yearsToDeath);
   const sbp1Monthly = (inputs.sbp1Enabled ? inputs.sbp1Annual/12 : 0) * Math.pow(1 + inputs.pensionGrowth, yearsToDeath);
   const sbp2Monthly = (inputs.sbp2Enabled ? inputs.sbp2Annual/12 : 0) * Math.pow(1 + inputs.pension2Growth, yearsToDeath);
   const dicMonthly = (inputs.dicEligible ? inputs.dicMonthlyAmount : 0) * Math.pow(1 + inputs.ssCola, yearsToDeath);
+  const dicAidAttendanceMonthly = (inputs.dicEligible && inputs.dicAidAttendanceEnabled && ltcActiveAtDeath)
+    ? inputs.dicAidAttendanceMonthly * Math.pow(1 + inputs.ssCola, yearsToDeath)
+    : 0;
   const ssMonthly = (inputs.ssMonthly || 0) * Math.pow(1 + inputs.ssCola, yearsToDeath); // survivor benefit = the full amount of the deceased's own SS
-  const guaranteedAnnual = ssMonthly*12 + sbp1Monthly*12 + sbp2Monthly*12 + dicMonthly*12;
+  const guaranteedAnnual = ssMonthly*12 + sbp1Monthly*12 + sbp2Monthly*12 + dicMonthly*12 + dicAidAttendanceMonthly*12;
+  const ltcAnnual = ltcActiveAtDeath ? inputs.ltcAnnualCost * medInflatorToDeath : 0;
 
   // Tricare's premium drops to $0 once she's on Medicare — TFL keeps her covered at no added cost
   // beyond Part B. Medical/expense figures use General Inflation / Medical Inflation, matching the
   // real yearly engine, instead of staying flat at today's $.
-  const ageGap = inputs.currentAge - inputs.spouseCurrentAge;
-  const spouseAgeAtDeath = inputs.survivorshipDeathAge - ageGap;
   const spouseOnMedicareAtDeath = spouseAgeAtDeath >= inputs.medicareAge;
   const medicalContinues = inputs.survivorMedicalContinues !== false;
   const medicalMonthlyToday = !medicalContinues ? 0 : (
@@ -6025,7 +6067,7 @@ function renderSurvivorshipCharts(inputs, rows, ctx) {
   const deathAgeRow = rows && rows.length ? (rows.find(r => r.age === inputs.survivorshipDeathAge) || rows[rows.length-1]) : null;
   const housingMonthly = inputs.survivorHousingContinues === false ? 0
     : (inputs.survivorHousingAmountOverride != null ? inputs.survivorHousingAmountOverride * genInflatorToDeath : (deathAgeRow ? deathAgeRow.housingCost / 12 : 0));
-  const expenseTotalAnnual = (expensesMonthly + housingMonthly + debtMonthly + insuranceMonthly + medicalMonthly) * 12;
+  const expenseTotalAnnual = (expensesMonthly + housingMonthly + debtMonthly + insuranceMonthly + medicalMonthly) * 12 + ltcAnnual;
 
   // Guaranteed income (SS/SBP/DIC) rarely covers 100% of expenses on its own — whatever's left
   // has to come from withdrawing the portfolio (TSP/brokerage/cash), same as it does for the
@@ -6034,13 +6076,13 @@ function renderSurvivorshipCharts(inputs, rows, ctx) {
   const investmentDrawdownAnnual = Math.max(0, expenseTotalAnnual - guaranteedAnnual);
 
   const incomeConfig = barConfig(
-    ['SS Survivor Benefit', 'SBP (Military Pension)', 'Survivor Annuity (Govt)', 'VA DIC', 'Investment Drawdown'],
-    [ssMonthly*12, sbp1Monthly*12, sbp2Monthly*12, dicMonthly*12, investmentDrawdownAnnual],
+    ['SS Survivor Benefit', 'SBP (Military Pension)', 'Survivor Annuity (Govt)', 'VA DIC', 'DIC Aid & Attendance', 'Investment Drawdown'],
+    [ssMonthly*12, sbp1Monthly*12, sbp2Monthly*12, dicMonthly*12, dicAidAttendanceMonthly*12, investmentDrawdownAnnual],
     { horizontal: true, showValues: true }
   );
 
-  const expenseLabels = ['Recurring expenses', 'Housing', 'Debt payments', 'Insurance premiums', 'Medical (Tricare/Part B/FEDVIP)'];
-  const expenseValues = [expensesMonthly*12, housingMonthly*12, debtMonthly*12, insuranceMonthly*12, medicalMonthly*12];
+  const expenseLabels = ['Recurring expenses', 'Housing', 'Debt payments', 'Insurance premiums', 'Medical (Tricare/Part B/FEDVIP)', 'Long-term care'];
+  const expenseValues = [expensesMonthly*12, housingMonthly*12, debtMonthly*12, insuranceMonthly*12, medicalMonthly*12, ltcAnnual];
   const expenseConfig = barConfig(expenseLabels, expenseValues, { horizontal: true, showValues: true });
 
   [[incomeCanvas, incomeConfig, 'survivorship_income'], [expenseCanvas, expenseConfig, 'survivorship_expenses']]
@@ -6072,7 +6114,7 @@ function renderSurvivorshipCharts(inputs, rows, ctx) {
       const key = 'survivorship_yearly';
       const config = yearlyBarConfig(ages, [
         { label: 'Total income (guaranteed + withdrawals)', data: scenarioRows.map(r => dv((r.guaranteedIncomeAfterTax != null ? r.guaranteedIncomeAfterTax : (r.guaranteedIncome || 0)) + (r.grossWithdrawal || 0), r.age, inputs)) },
-        { label: 'Total expenses', data: scenarioRows.map(r => dv(r.spending || 0, r.age, inputs)) }
+        { label: 'Total expenses', data: scenarioRows.map(r => dv((r.spending || 0) + (r.ltcCost || 0), r.age, inputs)) }
       ]);
       if (charts[key]) charts[key].destroy();
       ensureChartHorizontalScroll(yearlyCanvas, ages.length * 13);
@@ -6839,6 +6881,8 @@ function readInputs() {
     sbp2PremiumMonthly: +els('sbp2PremiumMonthly').value,
     dicEligible: els('dicEligible').checked,
     dicMonthlyAmount: +els('dicMonthlyAmount').value,
+    dicAidAttendanceEnabled: els('dicAidAttendanceEnabled') ? els('dicAidAttendanceEnabled').checked : false,
+    dicAidAttendanceMonthly: els('dicAidAttendanceMonthly') ? (+els('dicAidAttendanceMonthly').value || 0) : 0,
     survivorFedvipMonthly: +els('survivorFedvipMonthly').value || 0,
     survivorMedicalContinues: els('survivorMedicalContinues') ? els('survivorMedicalContinues').checked : true,
     survivorHousingAmountOverride: (els('survivorHousingAmountOverride') && els('survivorHousingAmountOverride').value !== '') ? +els('survivorHousingAmountOverride').value : null,
@@ -6860,6 +6904,7 @@ function readInputs() {
     ltcDuration: +els('ltcDuration').value,
     ltcAnnualCost: +els('ltcAnnualCost').value,
     ltcCareType: els('ltcCareType') ? els('ltcCareType').value : 'custom',
+    ltcVaSpouseAidMonthly: els('ltcCareType') && (els('ltcCareType').value === 'inhome_parttime_va' || els('ltcCareType').value === 'va_spouse_aa_only') ? VA_SPOUSE_AA_MONTHLY_2026 : 0,
     medicareAge: +els('medicareAge').value,
     rmdAge: +els('rmdAge').value || 75,
     tricareMonthly: +els('tricareMonthly').value,
@@ -7226,9 +7271,14 @@ function projectRun(inputs, ctx, randomize, shocks) {
     // instead first offset this cost against that year's guaranteed-income surplus (if any) inside the
     // post-retirement branch, right after `need` is computed further down, and only then fall back to Roth.
     let ltcCostThisYear = 0;
-    if (inputs.ltcEnabled && spouseAgeThisYear >= inputs.ltcStartAge && spouseAgeThisYear < inputs.ltcStartAge + inputs.ltcDuration) {
+    let ltcVaAidIncomeThisYear = 0;
+    const ltcActiveThisYear = inputs.ltcEnabled && spouseAgeThisYear >= inputs.ltcStartAge && spouseAgeThisYear < inputs.ltcStartAge + inputs.ltcDuration;
+    if (ltcActiveThisYear) {
       const medicalInflatorNow = Math.pow(1+inputs.medicalInflation, y);
       ltcCostThisYear = inputs.ltcAnnualCost * medicalInflatorNow;
+      // The dependent-spouse A&A amount is an add-on to the living veteran's tax-free VA compensation,
+      // not a discount applied to the care bill. It grows with the plan's VA increase assumption.
+      ltcVaAidIncomeThisYear = (inputs.ltcVaSpouseAidMonthly || 0) * 12 * Math.pow(1+inputs.vaDisabilityGrowth, y);
       if (age < inputs.retirementAge) {
         const fromRoth = Math.min(ltcCostThisYear, balRoth); balRoth -= fromRoth; addDirectWithdrawal('roth', fromRoth);
         const ltcFallbackOrder = [
@@ -7329,7 +7379,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
     // grossWithdrawal and withdrawalByAccount are declared earlier in this loop iteration (right after
     // jobLossActive, above the mortgage/LTC/Future Expenses pulls) so those pre-retirement-capable draws
     // can also feed into them — not redeclared here, just continuing to accumulate onto the same objects.
-    let contributions=0, withdrawal=0, guaranteedIncome=0, guaranteedIncomeAfterTax=0, spending=0, spousalBenefit=0, ssAmount=0, pensionAmount=0, pension2Amount=0, vaDisabilityAmount=0, annuityAmount=0, sbpAmount=0, dicAmount=0, essentialFloor=0;
+    let contributions=0, withdrawal=0, guaranteedIncome=0, guaranteedIncomeAfterTax=0, spending=0, spousalBenefit=0, ssAmount=0, pensionAmount=0, pension2Amount=0, vaDisabilityAmount=0, annuityAmount=0, sbpAmount=0, dicAmount=0, dicAidAttendanceAmount=0, essentialFloor=0;
     let fedMarginal=null, ltcgMarginal=null;
     // Hoisted so the row-push below (shared by both branches) can expose the already-computed IRMAA
     // surcharge for display/charting purposes — irmaaSurchargeMonthly itself stays a local const right
@@ -7370,11 +7420,16 @@ function projectRun(inputs, ctx, randomize, shocks) {
       // Pension(s) and VA disability stopped with the primary member's death; the ~50% spousal SS rate is
       // replaced by the full 100% survivor benefit (already what ssAmount computes, so it's left as-is and
       // spousalBenefit is zeroed instead of double-counting both).
-      pensionAmount = 0; pension2Amount = 0; vaDisabilityAmount = 0; spousalBenefit = 0;
+      pensionAmount = 0; pension2Amount = 0; vaDisabilityAmount = 0; ltcVaAidIncomeThisYear = 0; spousalBenefit = 0;
       sbpAmount = (inputs.sbp1Enabled ? inputs.sbp1Annual*pensionInflator : 0) + (inputs.sbp2Enabled ? inputs.sbp2Annual*pension2Inflator : 0);
       dicAmount = inputs.dicEligible ? inputs.dicMonthlyAmount*12*ssInflator : 0;
+      // Survivor DIC A&A replaces the living-veteran dependent-spouse add-on and is available only
+      // while the spouse's modeled LTC need is active. Both amounts are tax-free, but never overlap.
+      dicAidAttendanceAmount = (inputs.dicEligible && inputs.dicAidAttendanceEnabled && ltcActiveThisYear)
+        ? inputs.dicAidAttendanceMonthly*12*ssInflator
+        : 0;
     }
-    guaranteedIncome = ssAmount + spousalBenefit + pensionAmount + pension2Amount + vaDisabilityAmount + annuityAmount + sbpAmount + dicAmount;
+    guaranteedIncome = ssAmount + spousalBenefit + pensionAmount + pension2Amount + vaDisabilityAmount + ltcVaAidIncomeThisYear + annuityAmount + sbpAmount + dicAmount + dicAidAttendanceAmount;
 
     // Start/end-dated expenses: which recurring expense rows actually count this year, filtered by age
     // against each row's optional startAge/endAge (see expenseActiveAtAge/computeExpenseTotals above) —
@@ -7960,7 +8015,7 @@ function projectRun(inputs, ctx, randomize, shocks) {
         age, spouseAge: age - ctx.ageGap,
         income: age < inputs.retirementAge ? income : (age === inputs.retirementAge ? income * workingFractionOfFinalYear(inputs) : null),
         contributions, tradContribOut, rothContribOut, matchContribOut,
-        guaranteedIncome, guaranteedIncomeAfterTax, spousalBenefit, ssAmount, pensionAmount, pension2Amount, vaDisabilityAmount, annuityAmount, sbpAmount, dicAmount, spending, withdrawal, grossWithdrawal, withdrawalByAccount, ltcCost: ltcCostThisYear,
+        guaranteedIncome, guaranteedIncomeAfterTax, spousalBenefit, ssAmount, pensionAmount, pension2Amount, vaDisabilityAmount, ltcVaAidIncome: ltcVaAidIncomeThisYear, annuityAmount, sbpAmount, dicAmount, dicAidAttendanceAmount, spending, withdrawal, grossWithdrawal, withdrawalByAccount, ltcCost: ltcCostThisYear,
         investable, cash, debtBalance: debtBalanceThisYear, homeEquity: homeEquityThisYear, vehicleAssets: vehicleAssetsThisYear, netWorth, housingCost, futureExpenseCost: futureExpenseCostThisYear,
         medicalCostAnnual, expensesCategoriesAnnual, excessIncomeSaved, insurancePremiumAnnual, essentialFloor, primaryDeceased, recurringLivingCostThisYear,
         fedMarginalRate: fedMarginal, ltcgMarginalRate: age >= inputs.retirementAge ? ltcgMarginal : null,
@@ -9894,8 +9949,12 @@ function buildYearlyChartConfig(pageId, snap) {
       // at $0 and get filtered out below unless that what-if is actually active.
       const survivorExtraSeries = [
         { label: 'SBP Survivor Annuity', data: rows.map(r => d(r.sbpAmount, r.age)) },
-        { label: 'DIC (VA Survivor Benefit)', data: rows.map(r => d(r.dicAmount, r.age)) }
+        { label: 'DIC (VA Survivor Benefit)', data: rows.map(r => d(r.dicAmount, r.age)) },
+        { label: 'DIC Aid & Attendance add-on', data: rows.map(r => d(r.dicAidAttendanceAmount, r.age)) }
       ].filter(s => s.data.some(v => v > 0.5));
+      const ltcVaAidSeries = rows.some(r => (r.ltcVaAidIncome || 0) > 0.5)
+        ? [{ label: 'VA spouse A&A add-on (tax-free)', data: rows.map(r => d(r.ltcVaAidIncome || 0, r.age)) }]
+        : [];
       return yearlyBarConfig(ages, [
         { label: 'Job income (annual raise %)', data: rows.map(r => d(r.income, r.age)) },
         ...ssSeries,
@@ -9903,6 +9962,7 @@ function buildYearlyChartConfig(pageId, snap) {
         { label: 'Military Pension (own yearly increase %)', data: rows.map(r => d(r.pensionAmount, r.age)) },
         { label: 'Govt Civil Service (own yearly increase %)', data: rows.map(r => d(r.pension2Amount, r.age)) },
         { label: 'VA Disability (own yearly increase %)', data: rows.map(r => d(r.vaDisabilityAmount, r.age)) },
+        ...ltcVaAidSeries,
         { label: 'Annuity (own yearly increase %)', data: rows.map(r => d(r.annuityAmount, r.age)) },
         ...survivorExtraSeries,
         ...usedKeys.map(k => ({
@@ -11817,6 +11877,7 @@ function render() {
   els('spousalBenefitFields').style.display = els('spouseWorks').checked ? 'none' : 'grid';
   els('buyHomeFields').style.display = els('buyHome').checked ? 'block' : 'none';
   els('ltcFields').style.display = els('ltcEnabled').checked ? 'block' : 'none';
+  renderLtcVaAidReadout();
   els('pill55').classList.toggle('active', +els('retirementAge').value === 55);
   els('pill56').classList.toggle('active', +els('retirementAge').value === 56);
   els('pill57').classList.toggle('active', +els('retirementAge').value === 57);
