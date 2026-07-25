@@ -5227,6 +5227,7 @@ function activateExplorerAnalysis(analysisId, scrollToSection = true, persist = 
   if (location.hash !== analysisHash) {
     try { history.replaceState(null, '', analysisHash); } catch (e) { /* URL marker is optional */ }
   }
+  if (analysisId === 'retirementtiming') renderRetirementTimingAnalysis();
   if (scrollToSection && target) {
     setTimeout(() => {
       target.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -10585,6 +10586,54 @@ function runSustainableSpendingAndRender() {
   }, 30);
 }
 
+let retirementTimingRunToken = 0;
+function renderRetirementTimingAnalysis() {
+  const host = els('compareBox');
+  if (!host) return;
+  const runToken = ++retirementTimingRunToken;
+  host.innerHTML = `
+    <div class="note" style="display:flex;align-items:center;gap:10px;">
+      <span aria-hidden="true">⏳</span>
+      <span><b>Calculating retirement ages 55 through 59…</b><br>This may take a few moments on a phone.</span>
+    </div>`;
+  // Yield once so the loading message paints before the five 1,000-path comparisons begin.
+  setTimeout(() => {
+    if (runToken !== retirementTimingRunToken ||
+        selectedExplorerAnalysis !== 'retirementtiming' ||
+        document.querySelector('.page.active')?.dataset.page !== 'explorers') return;
+    const inputs = readInputs();
+    const ctx = buildContext(inputs);
+    const ageOptions = [55, 56, 57, 58, 59];
+    const ageRuns = ageOptions.map(age => ({
+      age,
+      det: projectRun({...inputs, retirementAge:age}, ctx, false),
+      score: runMonteCarlo({...inputs, retirementAge:age}, ctx, 1000)
+    }));
+    if (runToken !== retirementTimingRunToken) return;
+    host.innerHTML = `
+      <div class="retirement-timing-grid">
+        ${ageRuns.map(r => {
+          const endingRow = r.det.rows && r.det.rows.length ? r.det.rows[r.det.rows.length - 1] : null;
+          const endingNetWorth = endingRow ? endingRow.netWorth : 0;
+          const scoreClass = r.score >= 80 ? 'strong' : r.score >= 60 ? 'good' : r.score >= 40 ? 'caution' : 'risk';
+          const isCurrent = r.age === inputs.retirementAge;
+          return `
+          <div class="retirement-timing-card ${isCurrent ? 'current' : ''}">
+            <div class="retirement-timing-head">
+              <div class="retirement-timing-age">Retire at ${r.age}</div>
+              ${isCurrent ? '<span class="retirement-timing-badge">Current plan</span>' : ''}
+            </div>
+            <div class="retirement-timing-score-label">Confidence score</div>
+            <div class="retirement-timing-score ${scoreClass}">${Math.round(r.score)}%</div>
+            <div class="retirement-timing-row"><span>Investable at retirement</span><strong>${fmtMoneyK(dv(r.det.investableAtRetirement, r.age, inputs))}</strong></div>
+            <div class="retirement-timing-row"><span>Ending net worth</span><strong>${fmtMoneyK(dv(endingNetWorth, endingRow ? endingRow.age : r.age, inputs))}</strong></div>
+            <div class="retirement-timing-longevity ${r.det.depletionAge ? 'warn' : ''}">${r.det.depletionAge ? 'Runs out at age ' + r.det.depletionAge : 'Lasts through age ' + ctx.effectiveLifeExpectancy}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }, 30);
+}
+
 function renderExplorers() {
   const inputs = readInputs();
   const ctx = buildContext(inputs);
@@ -12320,33 +12369,7 @@ function render() {
   renderRothConversionComparison(inputs, ctx);
 
   if (activePageId === 'explorers' && selectedExplorerAnalysis === 'retirementtiming') {
-    const ageOptions = [55, 56, 57, 58, 59];
-    const ageRuns = ageOptions.map(age => ({
-      age,
-      det: projectRun({...inputs, retirementAge:age}, ctx, false),
-      score: runMonteCarlo({...inputs, retirementAge:age}, ctx, 1000)
-    }));
-    els('compareBox').innerHTML = `
-    <div class="retirement-timing-grid">
-      ${ageRuns.map(r => {
-        const endingRow = r.det.rows && r.det.rows.length ? r.det.rows[r.det.rows.length - 1] : null;
-        const endingNetWorth = endingRow ? endingRow.netWorth : 0;
-        const scoreClass = r.score >= 80 ? 'strong' : r.score >= 60 ? 'good' : r.score >= 40 ? 'caution' : 'risk';
-        const isCurrent = r.age === inputs.retirementAge;
-        return `
-        <div class="retirement-timing-card ${isCurrent ? 'current' : ''}">
-          <div class="retirement-timing-head">
-            <div class="retirement-timing-age">Retire at ${r.age}</div>
-            ${isCurrent ? '<span class="retirement-timing-badge">Current plan</span>' : ''}
-          </div>
-          <div class="retirement-timing-score-label">Confidence score</div>
-          <div class="retirement-timing-score ${scoreClass}">${Math.round(r.score)}%</div>
-          <div class="retirement-timing-row"><span>Investable at retirement</span><strong>${fmtMoneyK(dv(r.det.investableAtRetirement, r.age, inputs))}</strong></div>
-          <div class="retirement-timing-row"><span>Ending net worth</span><strong>${fmtMoneyK(dv(endingNetWorth, endingRow ? endingRow.age : r.age, inputs))}</strong></div>
-          <div class="retirement-timing-longevity ${r.det.depletionAge ? 'warn' : ''}">${r.det.depletionAge ? 'Runs out at age ' + r.det.depletionAge : 'Lasts through age ' + lifeExpectancy}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
+    renderRetirementTimingAnalysis();
   }
 
   // Monte Carlo failure diagnostics + historical crisis stress test
