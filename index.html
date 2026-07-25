@@ -11826,18 +11826,18 @@ function renderFinancialWellness(inputs, ctx, result, confidenceScore) {
 
   if (inputs.survivorshipDeathAge > 0) {
     metrics.push(metric(
-      'Surviving-spouse income coverage',
+      'First-year survivor guaranteed-income coverage',
       pc(survivorCoverage),
       'info',
-      `Separate what-if only: guaranteed survivor income compared with survivor spending in the first full modeled year after the assumed death at age ${inputs.survivorshipDeathAge}. This does not affect the main plan.`,
+      `Separate one-year ratio: guaranteed survivor income compared with regular survivor spending in the first full modeled year after the assumed death at age ${inputs.survivorshipDeathAge}. This is not the Survivorship Monte Carlo score; that score tests the entire remaining lifetime, including investment withdrawals, market risk, and later long-term care.`,
       'survivorship', 'Open separate survivorship analysis', 'Separate'
     ));
   } else {
     metrics.push(metric(
-      'Surviving-spouse income coverage',
+      'First-year survivor guaranteed-income coverage',
       'Not set',
       'info',
-      'This remains separate from the main plan. Set an assumed age on the Survivorship page to calculate income coverage for the surviving spouse.',
+      'This is a one-year guaranteed-income coverage ratio, not a Monte Carlo confidence score. Set an assumed age on the Survivorship page to calculate it.',
       'survivorship', 'Set survivorship assumptions', 'Separate'
     ));
   }
