@@ -5224,6 +5224,15 @@ function toggleCard(h3) {
   window.dispatchEvent(new Event('resize'));
 }
 
+// A card is collapsible only when its direct heading actually uses toggleCard(). Applying the rule
+// by behavior instead of by page name keeps every section consistent while leaving structural cards
+// (embedded tools, score tiles, wellness summaries, etc.) alone when they have no clickable heading.
+function collapsePlannerCards(root = document) {
+  root.querySelectorAll('.card').forEach(card => {
+    if (card.querySelector(':scope > h3[onclick*="toggleCard"]')) card.classList.add('collapsed');
+  });
+}
+
 function showPage(pageId, persistPage = true) {
   pageId = activatePageShell(pageId);
   // Save immediately after the visible section changes. Page-specific charts and tools initialize
@@ -5246,7 +5255,8 @@ function showPage(pageId, persistPage = true) {
   // meant to always stay open, and must NOT get the .collapsed class: the CSS rule that hides a
   // collapsed card's body (.card.collapsed > *:not(h3){display:none}) would hide literally everything
   // in them, since they have no h3 to spare.
-  document.querySelectorAll(`.page[data-page="${pageId}"] .card`).forEach(c => { if (c.querySelector(':scope > h3') && !c.classList.contains('no-autocollapse')) c.classList.add('collapsed'); });
+  const activePage = document.querySelector(`.page[data-page="${pageId}"]`);
+  if (activePage) collapsePlannerCards(activePage);
   if (lastSnapshot) refreshSectionCharts(pageId, lastSnapshot);
   if (pageId === 'explorers') renderExplorers();
   if (pageId === 'coach') { renderCoachTips(); renderCoachAiGate(); }
@@ -12291,6 +12301,9 @@ try {
 // and the still-active Dashboard was left on screen even though the correct section had been saved.
 const initialPageAtBoot = readInitialPage();
 const initialExplorerAnalysisAtBoot = readInitialExplorerAnalysis();
+// Collapse the static cards immediately, before any calculations or optional chart libraries run.
+// This guarantees a clean refresh even if an unrelated startup task later fails.
+collapsePlannerCards();
 if (initialPageAtBoot) {
   activatePageShell(initialPageAtBoot);
   // Set the Explorer subsection before render() builds and saves the first snapshot. Otherwise the
@@ -12370,6 +12383,9 @@ syncAgeFromBirthDate('spouseBirthDate', 'spouseAge', 'spouseBirthMonth', 'spouse
 recomputeAgesFromDates();
 
 render();
+// render() creates several diagnostic/chart cards dynamically. Apply the same refresh rule to those
+// newly created cards so every collapsible card in every section starts closed.
+collapsePlannerCards();
 
 // Finish any page-specific setup after the main render. The section itself was already activated above,
 // so it remains correct even if an unrelated startup calculation fails before this point.
