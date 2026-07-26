@@ -5927,6 +5927,9 @@ const CLOUD_RESET_PENDING_KEY = 'retirementPlannerCloudResetPending_v1';
 const CLOUD_EMAIL_KEY = 'retirementPlannerCloudEmail_v1';
 const PLANNER_AUTH_STORAGE_KEY = 'retirementPlannerSupabaseAuth_v1';
 const PLANNER_REFRESH_STORAGE_KEY = 'retirementPlannerRefreshToken_v1';
+const PLANNER_ACCESS_STORAGE_KEY = 'retirementPlannerAccessToken_v1';
+const PLANNER_EXPIRY_STORAGE_KEY = 'retirementPlannerTokenExpiry_v1';
+const PLANNER_USER_STORAGE_KEY = 'retirementPlannerCloudUser_v1';
 const CLOUD_SYNC_DELAY_MS = 1400;
 
 let plannerCloudSession = null;
@@ -6068,12 +6071,21 @@ function savePlannerCloudSession(session) {
   if (session) {
     try { plannerAuthStorage.setItem(PLANNER_AUTH_STORAGE_KEY, JSON.stringify(session)); } catch (e) { /* compact fallback below */ }
     // The complete session can exceed a browser cookie's size limit. Keep the small rotating refresh
-    // credential separately so the full session can be rebuilt after refresh even if a browser
-    // discarded the larger local-storage record.
+    // credential and the other essential pieces separately so the session can be rebuilt instantly
+    // after refresh even if a browser discarded the larger local-storage record.
     plannerAuthStorage.setItem(PLANNER_REFRESH_STORAGE_KEY, session.refresh_token);
+    plannerAuthStorage.setItem(PLANNER_ACCESS_STORAGE_KEY, session.access_token);
+    plannerAuthStorage.setItem(PLANNER_EXPIRY_STORAGE_KEY, String(session.expires_at || 0));
+    plannerAuthStorage.setItem(PLANNER_USER_STORAGE_KEY, JSON.stringify({
+      id:session.user && session.user.id || '',
+      email:session.user && session.user.email || ''
+    }));
   } else {
     plannerAuthStorage.removeItem(PLANNER_AUTH_STORAGE_KEY);
     plannerAuthStorage.removeItem(PLANNER_REFRESH_STORAGE_KEY);
+    plannerAuthStorage.removeItem(PLANNER_ACCESS_STORAGE_KEY);
+    plannerAuthStorage.removeItem(PLANNER_EXPIRY_STORAGE_KEY);
+    plannerAuthStorage.removeItem(PLANNER_USER_STORAGE_KEY);
   }
 }
 function readPlannerStoredSessionAny() {
@@ -6088,7 +6100,17 @@ function readPlannerStoredSessionAny() {
     // Fall through to the compact refresh credential.
   }
   const refreshToken = plannerAuthStorage.getItem(PLANNER_REFRESH_STORAGE_KEY);
-  return refreshToken ? { refresh_token:refreshToken, expires_at:0 } : null;
+  if (!refreshToken) return null;
+  const accessToken = plannerAuthStorage.getItem(PLANNER_ACCESS_STORAGE_KEY);
+  const expiresAt = Number(plannerAuthStorage.getItem(PLANNER_EXPIRY_STORAGE_KEY) || 0);
+  let user = null;
+  try { user = JSON.parse(plannerAuthStorage.getItem(PLANNER_USER_STORAGE_KEY) || 'null'); } catch (e) { user = null; }
+  return {
+    refresh_token:refreshToken,
+    access_token:accessToken || '',
+    expires_at:expiresAt,
+    user:user && user.id ? user : null
+  };
 }
 async function plannerSupabaseRequest(path, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
