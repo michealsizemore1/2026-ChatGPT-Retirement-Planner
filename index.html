@@ -5925,6 +5925,7 @@ const CLOUD_LAST_SYNC_KEY = 'retirementPlannerCloudLastSync_v1';
 const CLOUD_DIRTY_KEY = 'retirementPlannerCloudDirty_v1';
 const CLOUD_RESET_PENDING_KEY = 'retirementPlannerCloudResetPending_v1';
 const CLOUD_EMAIL_KEY = 'retirementPlannerCloudEmail_v1';
+const PLANNER_AUTH_STORAGE_KEY = 'retirementPlannerSupabaseAuth_v1';
 const CLOUD_SYNC_DELAY_MS = 1400;
 
 let plannerSupabaseClient = null;
@@ -6009,9 +6010,28 @@ function getPlannerSupabaseClient() {
     throw new Error('The secure synchronization library could not load. Check the internet connection and try again.');
   }
   plannerSupabaseClient = window.supabase.createClient(PLANNER_SUPABASE_URL, PLANNER_SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
+    // Explicit storage + a stable key avoids browser/CDN-version differences in Supabase's generated
+    // default key. Each browser keeps its own Supabase session here until Sign out.
+    auth: {
+      storage:window.localStorage,
+      storageKey:PLANNER_AUTH_STORAGE_KEY,
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true
+    }
   });
   return plannerSupabaseClient;
+}
+function plannerAuthStorageWorks() {
+  const probeKey = 'retirementPlannerStorageProbe_v1';
+  try {
+    localStorage.setItem(probeKey, 'ok');
+    const works = localStorage.getItem(probeKey) === 'ok';
+    localStorage.removeItem(probeKey);
+    return works;
+  } catch (e) {
+    return false;
+  }
 }
 async function signInToPlanner(event) {
   if (event) event.preventDefault();
@@ -6026,6 +6046,9 @@ async function signInToPlanner(event) {
     const { data, error } = await client.auth.signInWithPassword({ email, password });
     if (error) throw error;
     cloudStorageSet(CLOUD_EMAIL_KEY, email);
+    if (!plannerAuthStorageWorks() || !cloudStorageGet(PLANNER_AUTH_STORAGE_KEY)) {
+      throw new Error('This browser signed in but did not retain the session. Allow on-device site data for this GitHub Pages address, then sign in again.');
+    }
     if (els('cloudAuthPassword')) els('cloudAuthPassword').value = '';
     await handlePlannerCloudSession(data.session);
   } catch (e) {
@@ -6278,6 +6301,9 @@ async function initPlannerCloudSync() {
   const remembered = cloudStorageGet(CLOUD_EMAIL_KEY);
   if (remembered && els('cloudAuthEmail')) els('cloudAuthEmail').value = remembered;
   try {
+    if (!plannerAuthStorageWorks()) {
+      throw new Error('This browser is blocking persistent on-device site storage. Allow site data for this GitHub Pages address to stay signed in.');
+    }
     const client = getPlannerSupabaseClient();
     client.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
