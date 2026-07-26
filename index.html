@@ -871,8 +871,9 @@
 <div class="cloud-auth-overlay" id="cloudAuthOverlay" role="dialog" aria-modal="true" aria-labelledby="cloudAuthTitle">
   <div class="cloud-auth-card">
     <h2 id="cloudAuthTitle">Michael &amp; Cynthia's Retirement</h2>
-    <p>Sign in to securely load and synchronize your retirement plan across your computers and phones.</p>
-    <form onsubmit="signInToPlanner(event)">
+    <p id="cloudAuthChecking">Checking this device for your saved sign-in&hellip;</p>
+    <p id="cloudAuthIntro" style="display:none;">Sign in to securely load and synchronize your retirement plan across your computers and phones.</p>
+    <form id="cloudAuthForm" style="display:none;" onsubmit="signInToPlanner(event)">
       <div class="field"><label for="cloudAuthEmail">Email</label><input type="email" id="cloudAuthEmail" autocomplete="username" required></div>
       <div class="field"><label for="cloudAuthPassword">Password</label><input type="password" id="cloudAuthPassword" autocomplete="current-password" required></div>
       <div class="auth-actions">
@@ -880,9 +881,9 @@
         <button type="button" class="add-btn auth-secondary" onclick="continuePlannerOffline()">Continue offline</button>
       </div>
     </form>
-    <button type="button" class="link-btn" style="margin-top:14px;" onclick="sendPlannerPasswordReset()">Forgot password?</button>
+    <button type="button" class="link-btn" id="cloudForgotPasswordBtn" style="margin-top:14px;display:none;" onclick="sendPlannerPasswordReset()">Forgot password?</button>
     <div class="cloud-auth-message" id="cloudAuthMessage"></div>
-    <p style="font-size:13.5px;margin:16px 0 0;color:var(--muted);">Offline mode uses only the copy saved on this device. Sign in when internet access returns to synchronize it.</p>
+    <p id="cloudAuthOfflineHelp" style="display:none;font-size:13.5px;margin:16px 0 0;color:var(--muted);">Offline mode uses only the copy saved on this device. Sign in when internet access returns to synchronize it.</p>
   </div>
 </div>
 
@@ -5947,6 +5948,54 @@ function cloudStorageSet(key, value) {
 function cloudStorageRemove(key) {
   try { localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
 }
+function plannerAuthCookieGet(key) {
+  try {
+    const prefix = encodeURIComponent(key) + '=';
+    const part = document.cookie.split('; ').find(item => item.startsWith(prefix));
+    return part ? decodeURIComponent(part.slice(prefix.length)) : null;
+  } catch (e) {
+    return null;
+  }
+}
+function plannerAuthCookieSet(key, value) {
+  try {
+    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; Max-Age=2592000; Path=/; SameSite=Lax; Secure`;
+    return plannerAuthCookieGet(key) === value;
+  } catch (e) {
+    return false;
+  }
+}
+function plannerAuthCookieRemove(key) {
+  try { document.cookie = `${encodeURIComponent(key)}=; Max-Age=0; Path=/; SameSite=Lax; Secure`; } catch (e) { /* unavailable */ }
+}
+// Supabase normally persists in localStorage. Mirroring the same session into sessionStorage and a
+// first-party cookie makes ordinary refreshes resilient on browsers that selectively block one
+// storage mechanism. Sign out removes all three copies.
+const plannerAuthStorage = {
+  getItem(key) {
+    try {
+      const localValue = window.localStorage && window.localStorage.getItem(key);
+      if (localValue) return localValue;
+    } catch (e) { /* try the next browser store */ }
+    try {
+      const sessionValue = window.sessionStorage && window.sessionStorage.getItem(key);
+      if (sessionValue) return sessionValue;
+    } catch (e) { /* try the cookie fallback */ }
+    return plannerAuthCookieGet(key);
+  },
+  setItem(key, value) {
+    let saved = false;
+    try { window.localStorage.setItem(key, value); saved = window.localStorage.getItem(key) === value || saved; } catch (e) { /* fallback below */ }
+    try { window.sessionStorage.setItem(key, value); saved = window.sessionStorage.getItem(key) === value || saved; } catch (e) { /* fallback below */ }
+    saved = plannerAuthCookieSet(key, value) || saved;
+    if (!saved) throw new Error('This browser is blocking the storage needed to retain your sign-in.');
+  },
+  removeItem(key) {
+    try { window.localStorage.removeItem(key); } catch (e) { /* continue */ }
+    try { window.sessionStorage.removeItem(key); } catch (e) { /* continue */ }
+    plannerAuthCookieRemove(key);
+  }
+};
 function formatCloudTime(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -5988,6 +6037,16 @@ function showCloudAuthMessage(message, isError = false) {
 function showPlannerSignIn() {
   const overlay = els('cloudAuthOverlay');
   if (overlay) overlay.style.display = 'flex';
+  const checking = els('cloudAuthChecking');
+  const intro = els('cloudAuthIntro');
+  const form = els('cloudAuthForm');
+  const forgot = els('cloudForgotPasswordBtn');
+  const offlineHelp = els('cloudAuthOfflineHelp');
+  if (checking) checking.style.display = 'none';
+  if (intro) intro.style.display = '';
+  if (form) form.style.display = '';
+  if (forgot) forgot.style.display = '';
+  if (offlineHelp) offlineHelp.style.display = '';
   const remembered = cloudStorageGet(CLOUD_EMAIL_KEY);
   const email = els('cloudAuthEmail');
   if (email && remembered && !email.value) email.value = remembered;
@@ -6013,7 +6072,7 @@ function getPlannerSupabaseClient() {
     // Explicit storage + a stable key avoids browser/CDN-version differences in Supabase's generated
     // default key. Each browser keeps its own Supabase session here until Sign out.
     auth: {
-      storage:window.localStorage,
+      storage:plannerAuthStorage,
       storageKey:PLANNER_AUTH_STORAGE_KEY,
       persistSession:true,
       autoRefreshToken:true,
@@ -6025,9 +6084,9 @@ function getPlannerSupabaseClient() {
 function plannerAuthStorageWorks() {
   const probeKey = 'retirementPlannerStorageProbe_v1';
   try {
-    localStorage.setItem(probeKey, 'ok');
-    const works = localStorage.getItem(probeKey) === 'ok';
-    localStorage.removeItem(probeKey);
+    plannerAuthStorage.setItem(probeKey, 'ok');
+    const works = plannerAuthStorage.getItem(probeKey) === 'ok';
+    plannerAuthStorage.removeItem(probeKey);
     return works;
   } catch (e) {
     return false;
@@ -6046,7 +6105,7 @@ async function signInToPlanner(event) {
     const { data, error } = await client.auth.signInWithPassword({ email, password });
     if (error) throw error;
     cloudStorageSet(CLOUD_EMAIL_KEY, email);
-    if (!plannerAuthStorageWorks() || !cloudStorageGet(PLANNER_AUTH_STORAGE_KEY)) {
+    if (!plannerAuthStorageWorks() || !plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY)) {
       throw new Error('This browser signed in but did not retain the session. Allow on-device site data for this GitHub Pages address, then sign in again.');
     }
     if (els('cloudAuthPassword')) els('cloudAuthPassword').value = '';
@@ -6318,8 +6377,16 @@ async function initPlannerCloudSync() {
         setTimeout(() => handlePlannerCloudSession(session), 0);
       }
     });
-    const { data, error } = await client.auth.getSession();
+    let { data, error } = await client.auth.getSession();
     if (error) throw error;
+    // Some mobile browsers finish restoring their durable storage just after the page script starts.
+    // If a saved Supabase session exists, allow one short retry before deciding sign-in is required.
+    if (!data.session && plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY)) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+      const retry = await client.auth.getSession();
+      if (retry.error) throw retry.error;
+      data = retry.data;
+    }
     await handlePlannerCloudSession(data.session);
   } catch (e) {
     plannerCloudReady = true;
@@ -6328,6 +6395,7 @@ async function initPlannerCloudSync() {
     setCloudStatus(navigator.onLine === false ? 'offline' : 'error', navigator.onLine === false ? 'Offline' : 'Connection error',
       'The local copy remains available. Continue offline or retry after checking the connection.');
     updateCloudAccountUi();
+    showPlannerSignIn();
   }
 }
 window.addEventListener('online', () => {
