@@ -19,7 +19,6 @@
 <!-- Supabase provides authenticated, cross-device planner synchronization. The publishable key used
      below is intentionally safe for browser code; database access is restricted by Supabase Auth and
      the retirement_plans table's Row Level Security policies. -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --navy:#132a3e;
@@ -5929,7 +5928,7 @@ const CLOUD_EMAIL_KEY = 'retirementPlannerCloudEmail_v1';
 const PLANNER_AUTH_STORAGE_KEY = 'retirementPlannerSupabaseAuth_v1';
 const CLOUD_SYNC_DELAY_MS = 1400;
 
-let plannerSupabaseClient = null;
+let plannerCloudSession = null;
 let plannerCloudUser = null;
 let plannerCloudReady = false;
 let plannerCloudTrackChanges = false;
@@ -5996,35 +5995,6 @@ const plannerAuthStorage = {
     plannerAuthCookieRemove(key);
   }
 };
-function plannerAuthProcessLock(name, acquireTimeout, fn) {
-  // Supabase's browser-wide Web Lock can remain orphaned when a tab is refreshed, suspended, or
-  // closed. That leaves getSession() waiting forever on every other planner tab. The planner's
-  // operations are already serialized within each page, so run the supplied auth operation without
-  // the fragile cross-tab Navigator Lock.
-  return fn();
-}
-function withPlannerAuthTimeout(promise, milliseconds = 8000) {
-  let timer;
-  const timeout = new Promise((resolve, reject) => {
-    timer = setTimeout(() => reject(new Error('The saved sign-in check timed out. Please sign in again.')), milliseconds);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-function readPlannerStoredSession() {
-  try {
-    const raw = plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    const saved = JSON.parse(raw);
-    const session = saved && saved.currentSession ? saved.currentSession : saved;
-    if (!session || !session.access_token || !session.refresh_token || !session.user) return null;
-    // A still-valid access token can be restored immediately without waiting for Supabase's
-    // cross-tab initialization. Expired sessions continue through the normal refresh path below.
-    const expiresAt = Number(session.expires_at || 0);
-    return expiresAt > Math.floor(Date.now() / 1000) + 30 ? session : null;
-  } catch (e) {
-    return null;
-  }
-}
 function formatCloudTime(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -6092,24 +6062,74 @@ function continuePlannerOffline() {
   setCloudStatus('offline', 'Offline', 'Changes are protected on this device and will synchronize after you sign in with an internet connection.');
   updateCloudAccountUi();
 }
-function getPlannerSupabaseClient() {
-  if (plannerSupabaseClient) return plannerSupabaseClient;
-  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-    throw new Error('The secure synchronization library could not load. Check the internet connection and try again.');
+function savePlannerCloudSession(session) {
+  plannerCloudSession = session || null;
+  if (session) plannerAuthStorage.setItem(PLANNER_AUTH_STORAGE_KEY, JSON.stringify(session));
+  else plannerAuthStorage.removeItem(PLANNER_AUTH_STORAGE_KEY);
+}
+function readPlannerStoredSessionAny() {
+  try {
+    const raw = plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    const session = saved && saved.currentSession ? saved.currentSession : saved;
+    return session && session.access_token && session.refresh_token && session.user ? session : null;
+  } catch (e) {
+    return null;
   }
-  plannerSupabaseClient = window.supabase.createClient(PLANNER_SUPABASE_URL, PLANNER_SUPABASE_PUBLISHABLE_KEY, {
-    // Explicit storage + a stable key avoids browser/CDN-version differences in Supabase's generated
-    // default key. Each browser keeps its own Supabase session here until Sign out.
-    auth: {
-      storage:plannerAuthStorage,
-      storageKey:PLANNER_AUTH_STORAGE_KEY,
-      persistSession:true,
-      autoRefreshToken:true,
-      detectSessionInUrl:true,
-      lock:plannerAuthProcessLock
+}
+async function plannerSupabaseRequest(path, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = Object.assign({
+      apikey:PLANNER_SUPABASE_PUBLISHABLE_KEY,
+      'Content-Type':'application/json'
+    }, options.headers || {});
+    const response = await fetch(PLANNER_SUPABASE_URL + path, Object.assign({}, options, { headers, signal:controller.signal }));
+    const text = await response.text();
+    let data = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch (e) { data = text; }
     }
+    if (!response.ok) {
+      const message = data && (data.msg || data.message || data.error_description || data.error)
+        ? (data.msg || data.message || data.error_description || data.error)
+        : `Supabase returned ${response.status}.`;
+      throw new Error(message);
+    }
+    return data;
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('The secure cloud request timed out. Your local copy remains available.');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function refreshPlannerCloudSession(session) {
+  const refreshed = await plannerSupabaseRequest('/auth/v1/token?grant_type=refresh_token', {
+    method:'POST',
+    body:JSON.stringify({ refresh_token:session.refresh_token })
   });
-  return plannerSupabaseClient;
+  savePlannerCloudSession(refreshed);
+  return refreshed;
+}
+async function ensurePlannerCloudSession() {
+  let session = plannerCloudSession || readPlannerStoredSessionAny();
+  if (!session) return null;
+  const expiresAt = Number(session.expires_at || 0);
+  if (expiresAt && expiresAt <= Math.floor(Date.now() / 1000) + 60) {
+    session = await refreshPlannerCloudSession(session);
+  } else {
+    plannerCloudSession = session;
+  }
+  return session;
+}
+async function plannerDatabaseRequest(path, options = {}, timeoutMs = 12000) {
+  const session = await ensurePlannerCloudSession();
+  if (!session) throw new Error('Sign in before synchronizing.');
+  options.headers = Object.assign({}, options.headers || {}, { Authorization:`Bearer ${session.access_token}` });
+  return plannerSupabaseRequest('/rest/v1/' + path, options, timeoutMs);
 }
 function plannerAuthStorageWorks() {
   const probeKey = 'retirementPlannerStorageProbe_v1';
@@ -6131,15 +6151,17 @@ async function signInToPlanner(event) {
   if (button) { button.disabled = true; button.textContent = 'Signing in…'; }
   showCloudAuthMessage('Securely signing in…');
   try {
-    const client = getPlannerSupabaseClient();
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    const session = await plannerSupabaseRequest('/auth/v1/token?grant_type=password', {
+      method:'POST',
+      body:JSON.stringify({ email, password })
+    });
+    savePlannerCloudSession(session);
     cloudStorageSet(CLOUD_EMAIL_KEY, email);
     if (!plannerAuthStorageWorks() || !plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY)) {
       throw new Error('This browser signed in but did not retain the session. Allow on-device site data for this GitHub Pages address, then sign in again.');
     }
     if (els('cloudAuthPassword')) els('cloudAuthPassword').value = '';
-    await handlePlannerCloudSession(data.session);
+    await handlePlannerCloudSession(session);
   } catch (e) {
     showCloudAuthMessage(e && e.message ? e.message : 'Sign-in failed. Check the email and password.', true);
     setCloudStatus('error', 'Sign-in needed', 'The local copy is still safe on this device. Sign in to resume synchronization.');
@@ -6151,9 +6173,10 @@ async function sendPlannerPasswordReset() {
   const email = (els('cloudAuthEmail') && els('cloudAuthEmail').value || '').trim();
   if (!email) { showCloudAuthMessage('Enter your email address first, then select Forgot password.', true); return; }
   try {
-    const client = getPlannerSupabaseClient();
-    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: PLANNER_SITE_URL });
-    if (error) throw error;
+    await plannerSupabaseRequest('/auth/v1/recover?redirect_to=' + encodeURIComponent(PLANNER_SITE_URL), {
+      method:'POST',
+      body:JSON.stringify({ email })
+    });
     showCloudAuthMessage('Password-reset instructions were sent if that email belongs to the planner account.');
   } catch (e) {
     showCloudAuthMessage(e && e.message ? e.message : 'The password-reset email could not be sent.', true);
@@ -6171,12 +6194,17 @@ async function completePlannerPasswordRecovery() {
     return completePlannerPasswordRecovery();
   }
   try {
-    const client = getPlannerSupabaseClient();
-    const { error } = await client.auth.updateUser({ password:newPassword });
-    if (error) throw error;
+    const session = await ensurePlannerCloudSession();
+    if (!session) throw new Error('The password-reset session has expired. Request a new reset email.');
+    const updatedUser = await plannerSupabaseRequest('/auth/v1/user', {
+      method:'PUT',
+      headers:{ Authorization:`Bearer ${session.access_token}` },
+      body:JSON.stringify({ password:newPassword })
+    });
+    session.user = updatedUser;
+    savePlannerCloudSession(session);
     alert('Your planner password was updated. The synchronized plan will now load.');
-    const { data } = await client.auth.getSession();
-    await handlePlannerCloudSession(data.session);
+    await handlePlannerCloudSession(session);
   } catch (e) {
     showPlannerSignIn();
     showCloudAuthMessage(e && e.message ? e.message : 'The password could not be updated.', true);
@@ -6229,17 +6257,20 @@ async function applyPlannerCloudState(state, remoteUpdatedAt) {
   cloudStorageRemove(CLOUD_DIRTY_KEY);
 }
 async function pushCurrentPlanToCloud() {
-  const client = getPlannerSupabaseClient();
   if (!plannerCloudUser) throw new Error('Sign in before synchronizing.');
   const state = saveState();
   const updatedAt = new Date().toISOString();
-  const { data, error } = await client.from('retirement_plans').upsert({
-    user_id: plannerCloudUser.id,
-    plan_data: state,
-    updated_at: updatedAt
-  }, { onConflict:'user_id' }).select('updated_at').single();
-  if (error) throw error;
-  const confirmedAt = data && data.updated_at ? data.updated_at : updatedAt;
+  const rows = await plannerDatabaseRequest('retirement_plans?on_conflict=user_id&select=updated_at', {
+    method:'POST',
+    headers:{ Prefer:'resolution=merge-duplicates,return=representation' },
+    body:JSON.stringify({
+      user_id:plannerCloudUser.id,
+      plan_data:state,
+      updated_at:updatedAt
+    })
+  });
+  const savedRow = Array.isArray(rows) ? rows[0] : rows;
+  const confirmedAt = savedRow && savedRow.updated_at ? savedRow.updated_at : updatedAt;
   cloudStorageSet(CLOUD_LAST_SYNC_KEY, confirmedAt);
   cloudStorageRemove(CLOUD_DIRTY_KEY);
   return confirmedAt;
@@ -6261,10 +6292,10 @@ async function handlePlannerCloudSession(session) {
   updateCloudAccountUi();
   setCloudStatus('syncing', 'Loading…', 'Checking Supabase for the latest saved plan.');
   try {
-    const client = getPlannerSupabaseClient();
-    const { data, error } = await client.from('retirement_plans')
-      .select('plan_data,updated_at').eq('user_id', session.user.id).maybeSingle();
-    if (error) throw error;
+    plannerCloudSession = session;
+    const rows = await plannerDatabaseRequest('retirement_plans?select=plan_data,updated_at&user_id=eq.' +
+      encodeURIComponent(session.user.id) + '&limit=1', { method:'GET' });
+    const data = Array.isArray(rows) && rows.length ? rows[0] : null;
     const resetPending = cloudStorageGet(CLOUD_RESET_PENDING_KEY) === '1';
     const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY);
     const lastSyncAt = cloudStorageGet(CLOUD_LAST_SYNC_KEY);
@@ -6340,10 +6371,9 @@ async function syncCloudNow(userInitiated = false) {
   if (userInitiated) cloudStorageSet(CLOUD_DIRTY_KEY, new Date().toISOString());
   setCloudStatus('syncing', 'Syncing…', 'Comparing this device with the secure cloud copy.');
   try {
-    const client = getPlannerSupabaseClient();
-    const { data:remote, error:readError } = await client.from('retirement_plans')
-      .select('plan_data,updated_at').eq('user_id', plannerCloudUser.id).maybeSingle();
-    if (readError) throw readError;
+    const rows = await plannerDatabaseRequest('retirement_plans?select=plan_data,updated_at&user_id=eq.' +
+      encodeURIComponent(plannerCloudUser.id) + '&limit=1', { method:'GET' });
+    const remote = Array.isArray(rows) && rows.length ? rows[0] : null;
     const lastSyncAt = cloudStorageGet(CLOUD_LAST_SYNC_KEY);
     const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY);
     const cloudChangedSinceLastSync = remote && lastSyncAt && timestampAfter(remote.updated_at, lastSyncAt);
@@ -6376,14 +6406,45 @@ async function syncCloudNow(userInitiated = false) {
   }
 }
 async function signOutOfPlanner() {
-  if (!plannerSupabaseClient) { showPlannerSignIn(); return; }
   if (plannerCloudUser && cloudStorageGet(CLOUD_DIRTY_KEY)) await syncCloudNow(true);
-  await plannerSupabaseClient.auth.signOut();
+  try {
+    const session = await ensurePlannerCloudSession();
+    if (session) {
+      await plannerSupabaseRequest('/auth/v1/logout', {
+        method:'POST',
+        headers:{ Authorization:`Bearer ${session.access_token}` }
+      }, 6000);
+    }
+  } catch (e) { /* local sign-out must still complete if the network is unavailable */ }
+  savePlannerCloudSession(null);
   plannerCloudUser = null;
   plannerCloudTrackChanges = false;
   updateCloudAccountUi();
   setCloudStatus('unsigned', 'Sign in', 'Signed out. The cached local copy remains on this device.');
   showPlannerSignIn();
+}
+async function readPlannerRecoverySessionFromUrl() {
+  if (!location.hash || !location.hash.includes('type=recovery')) return null;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  if (!accessToken || !refreshToken) return null;
+  const user = await plannerSupabaseRequest('/auth/v1/user', {
+    method:'GET',
+    headers:{ Authorization:`Bearer ${accessToken}` }
+  });
+  const expiresIn = Number(params.get('expires_in') || 3600);
+  const session = {
+    access_token:accessToken,
+    refresh_token:refreshToken,
+    token_type:params.get('token_type') || 'bearer',
+    expires_in:expiresIn,
+    expires_at:Math.floor(Date.now() / 1000) + expiresIn,
+    user
+  };
+  savePlannerCloudSession(session);
+  history.replaceState(null, '', '#settings');
+  return session;
 }
 async function initPlannerCloudSync() {
   updateCloudAccountUi();
@@ -6393,36 +6454,19 @@ async function initPlannerCloudSync() {
     if (!plannerAuthStorageWorks()) {
       throw new Error('This browser is blocking persistent on-device site storage. Allow site data for this GitHub Pages address to stay signed in.');
     }
-    const client = getPlannerSupabaseClient();
-    client.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setTimeout(() => completePlannerPasswordRecovery(), 0);
-      } else if (event === 'SIGNED_OUT') {
-        plannerCloudUser = null;
-        plannerCloudTrackChanges = false;
-        updateCloudAccountUi();
-        setCloudStatus('unsigned', 'Sign in', 'Signed out. Sign in to resume synchronization.');
-        showPlannerSignIn();
-      } else if (event === 'SIGNED_IN' && session && (!plannerCloudUser || plannerCloudUser.id !== session.user.id)) {
-        setTimeout(() => handlePlannerCloudSession(session), 0);
-      }
-    });
-    const storedSession = readPlannerStoredSession();
-    if (storedSession) {
-      await handlePlannerCloudSession(storedSession);
+    const recoverySession = await readPlannerRecoverySessionFromUrl();
+    if (recoverySession) {
+      await completePlannerPasswordRecovery();
       return;
     }
-    let { data, error } = await withPlannerAuthTimeout(client.auth.getSession());
-    if (error) throw error;
-    // Some mobile browsers finish restoring their durable storage just after the page script starts.
-    // If a saved Supabase session exists, allow one short retry before deciding sign-in is required.
-    if (!data.session && plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY)) {
-      await new Promise(resolve => setTimeout(resolve, 250));
-      const retry = await withPlannerAuthTimeout(client.auth.getSession());
-      if (retry.error) throw retry.error;
-      data = retry.data;
+    const storedSession = readPlannerStoredSessionAny();
+    if (storedSession) {
+      plannerCloudSession = storedSession;
+      const activeSession = await ensurePlannerCloudSession();
+      await handlePlannerCloudSession(activeSession);
+      return;
     }
-    await handlePlannerCloudSession(data.session);
+    await handlePlannerCloudSession(null);
   } catch (e) {
     plannerCloudReady = true;
     plannerCloudTrackChanges = true;
