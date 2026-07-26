@@ -13411,6 +13411,11 @@ if (initialPageAtBoot) {
   if (initialPageAtBoot === 'explorers') activateExplorerAnalysis(initialExplorerAnalysisAtBoot, false, false);
 }
 
+// Start session restoration before any account rows, calculations, Monte Carlo runs, or charts are
+// built. A data-specific rendering exception must never prevent authentication from starting and
+// leave the badge permanently at its original "Checking" label.
+initPlannerCloudSync();
+
 renderExpenseRows();
 renderBrokeragePieRows();
 renderPieContributionRows();
@@ -13503,10 +13508,6 @@ window.addEventListener('hashchange', () => {
   if (pageId === 'explorers') activateExplorerAnalysis(parts[1] || readInitialExplorerAnalysis(), true, true);
 });
 
-// Authentication is checked after the local planner has completed its normal boot. The full-screen
-// sign-in layer stays in front until a session is verified (or the user deliberately chooses offline
-// mode), while an authenticated cloud plan can safely replace the cached local state once retrieved.
-initPlannerCloudSync();
 </script>
 </body>
 </html>
