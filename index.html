@@ -5926,6 +5926,7 @@ const CLOUD_DIRTY_KEY = 'retirementPlannerCloudDirty_v1';
 const CLOUD_RESET_PENDING_KEY = 'retirementPlannerCloudResetPending_v1';
 const CLOUD_EMAIL_KEY = 'retirementPlannerCloudEmail_v1';
 const PLANNER_AUTH_STORAGE_KEY = 'retirementPlannerSupabaseAuth_v1';
+const PLANNER_REFRESH_STORAGE_KEY = 'retirementPlannerRefreshToken_v1';
 const CLOUD_SYNC_DELAY_MS = 1400;
 
 let plannerCloudSession = null;
@@ -5958,7 +5959,7 @@ function plannerAuthCookieGet(key) {
 }
 function plannerAuthCookieSet(key, value) {
   try {
-    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; Max-Age=2592000; Path=/; SameSite=Lax; Secure`;
+    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; Max-Age=31536000; Path=/; SameSite=Lax; Secure`;
     return plannerAuthCookieGet(key) === value;
   } catch (e) {
     return false;
@@ -6064,19 +6065,30 @@ function continuePlannerOffline() {
 }
 function savePlannerCloudSession(session) {
   plannerCloudSession = session || null;
-  if (session) plannerAuthStorage.setItem(PLANNER_AUTH_STORAGE_KEY, JSON.stringify(session));
-  else plannerAuthStorage.removeItem(PLANNER_AUTH_STORAGE_KEY);
+  if (session) {
+    try { plannerAuthStorage.setItem(PLANNER_AUTH_STORAGE_KEY, JSON.stringify(session)); } catch (e) { /* compact fallback below */ }
+    // The complete session can exceed a browser cookie's size limit. Keep the small rotating refresh
+    // credential separately so the full session can be rebuilt after refresh even if a browser
+    // discarded the larger local-storage record.
+    plannerAuthStorage.setItem(PLANNER_REFRESH_STORAGE_KEY, session.refresh_token);
+  } else {
+    plannerAuthStorage.removeItem(PLANNER_AUTH_STORAGE_KEY);
+    plannerAuthStorage.removeItem(PLANNER_REFRESH_STORAGE_KEY);
+  }
 }
 function readPlannerStoredSessionAny() {
   try {
     const raw = plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    const saved = JSON.parse(raw);
-    const session = saved && saved.currentSession ? saved.currentSession : saved;
-    return session && session.access_token && session.refresh_token && session.user ? session : null;
+    if (raw) {
+      const saved = JSON.parse(raw);
+      const session = saved && saved.currentSession ? saved.currentSession : saved;
+      if (session && session.access_token && session.refresh_token && session.user) return session;
+    }
   } catch (e) {
-    return null;
+    // Fall through to the compact refresh credential.
   }
+  const refreshToken = plannerAuthStorage.getItem(PLANNER_REFRESH_STORAGE_KEY);
+  return refreshToken ? { refresh_token:refreshToken, expires_at:0 } : null;
 }
 async function plannerSupabaseRequest(path, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
@@ -6118,7 +6130,7 @@ async function ensurePlannerCloudSession() {
   let session = plannerCloudSession || readPlannerStoredSessionAny();
   if (!session) return null;
   const expiresAt = Number(session.expires_at || 0);
-  if (expiresAt && expiresAt <= Math.floor(Date.now() / 1000) + 60) {
+  if (!session.access_token || !session.user || !expiresAt || expiresAt <= Math.floor(Date.now() / 1000) + 60) {
     session = await refreshPlannerCloudSession(session);
   } else {
     plannerCloudSession = session;
@@ -6157,7 +6169,8 @@ async function signInToPlanner(event) {
     });
     savePlannerCloudSession(session);
     cloudStorageSet(CLOUD_EMAIL_KEY, email);
-    if (!plannerAuthStorageWorks() || !plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY)) {
+    if (!plannerAuthStorageWorks() || (!plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY) &&
+        !plannerAuthStorage.getItem(PLANNER_REFRESH_STORAGE_KEY))) {
       throw new Error('This browser signed in but did not retain the session. Allow on-device site data for this GitHub Pages address, then sign in again.');
     }
     if (els('cloudAuthPassword')) els('cloudAuthPassword').value = '';
