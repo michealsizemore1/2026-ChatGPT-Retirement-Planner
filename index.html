@@ -16,6 +16,10 @@
      Claude chat actually looks. Loaded with `defer` for the same reason as pdf.js/mammoth above; the chat
      send functions check `window.marked` exists before using it and fall back to plain text if it didn't load. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/16.3.0/lib/marked.umd.min.js" defer></script>
+<!-- Supabase provides authenticated, cross-device planner synchronization. The publishable key used
+     below is intentionally safe for browser code; database access is restricted by Supabase Auth and
+     the retirement_plans table's Row Level Security policies. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --navy:#132a3e;
@@ -69,6 +73,7 @@
   .sticky-section-info{
     display:flex;
     flex-direction:column;
+    flex:1 1 auto;
     min-width:0;
     line-height:1.15;
   }
@@ -82,13 +87,79 @@
   }
   .sticky-app-bar .current-page-label{
     display:block;
-    max-width:calc(100vw - 125px);
     color:#fff;
     font-size:18px;
     font-weight:700;
     line-height:1.2;
     overflow-wrap:anywhere;
   }
+  .cloud-sync-badge{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex:0 0 auto;
+    min-height:34px;
+    padding:6px 10px;
+    border:1px solid rgba(255,255,255,.28);
+    border-radius:17px;
+    background:rgba(255,255,255,.1);
+    color:#fff;
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .cloud-sync-badge:hover{background:rgba(255,255,255,.18);}
+  .cloud-sync-dot{width:9px;height:9px;border-radius:50%;background:#f0b44d;box-shadow:0 0 0 3px rgba(240,180,77,.16);}
+  .cloud-sync-badge[data-state="saved"] .cloud-sync-dot{background:#4ed1a2;box-shadow:0 0 0 3px rgba(78,209,162,.16);}
+  .cloud-sync-badge[data-state="syncing"] .cloud-sync-dot{background:#7ec8ff;animation:cloudPulse 1s ease-in-out infinite;}
+  .cloud-sync-badge[data-state="offline"] .cloud-sync-dot,
+  .cloud-sync-badge[data-state="error"] .cloud-sync-dot{background:#f49a8f;}
+  @keyframes cloudPulse{50%{opacity:.35;transform:scale(.75);}}
+
+  .cloud-auth-overlay{
+    position:fixed;
+    inset:0;
+    z-index:2500;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:22px;
+    background:linear-gradient(145deg, rgba(19,42,62,.98), rgba(22,70,78,.98));
+  }
+  .cloud-auth-card{
+    width:min(440px,100%);
+    max-height:calc(100vh - 44px);
+    overflow-y:auto;
+    padding:28px;
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:16px;
+    background:#fff;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .cloud-auth-card h2{margin:0 0 7px;color:var(--navy);font-size:27px;}
+  .cloud-auth-card > p{margin:0 0 20px;color:var(--muted);font-size:15.5px;line-height:1.5;}
+  .cloud-auth-card .field{margin-bottom:13px;}
+  .cloud-auth-card .auth-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:17px;}
+  .cloud-auth-card .auth-primary{flex:1 1 180px;}
+  .cloud-auth-card .auth-secondary{background:#eef3f5;color:var(--navy);}
+  .link-btn{border:0;background:transparent;color:var(--teal);font-family:inherit;font-size:14px;font-weight:600;padding:3px 0;cursor:pointer;text-decoration:underline;}
+  .cloud-auth-message{display:none;margin:12px 0 0;padding:9px 11px;border-radius:8px;background:#fff4e5;color:#83550c;font-size:14px;line-height:1.4;}
+  .cloud-auth-message.error{background:#fdf0ee;color:#9f3025;}
+  .cloud-account-summary{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    padding:13px 14px;
+    border:1px solid var(--border);
+    border-radius:9px;
+    background:#f8fafb;
+    margin-bottom:13px;
+  }
+  .cloud-account-summary strong{display:block;color:var(--navy);font-size:16px;}
+  .cloud-account-summary span{display:block;color:var(--muted);font-size:14px;margin-top:3px;overflow-wrap:anywhere;}
+  .cloud-status-detail{font-size:14.5px;color:var(--muted);line-height:1.5;margin:9px 0 0;}
 
   .header-bar{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;}
   .header-titles{flex:1 1 220px; min-width:220px;}
@@ -593,7 +664,9 @@
     .floating-ai-panel{right:10px; left:10px; width:auto; bottom:74px;}
     .sticky-app-bar{min-height:60px; padding:8px 16px;}
     .sticky-app-bar .hamburger-btn{width:44px; height:44px;}
-    .sticky-app-bar .current-page-label{font-size:17px; max-width:calc(100vw - 96px);}
+    .sticky-app-bar .current-page-label{font-size:17px;}
+    .cloud-sync-badge{padding:6px 8px;font-size:11.5px;}
+    .cloud-auth-card{padding:22px 18px;}
     header{padding:16px 16px;}
     header h1{font-size:20px;}
     header p{font-size:14px;}
@@ -758,7 +831,7 @@
      completely unaffected, since @media print never matches outside of an actual print/print-preview. */
   @media print {
     body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    header, .sticky-app-bar, .sidenav, .nav-overlay, .ask-ai-fab, .floating-ai-panel,
+    header, .sticky-app-bar, .cloud-auth-overlay, .sidenav, .nav-overlay, .ask-ai-fab, .floating-ai-panel,
     #backupReminderBanner, .info-banner-close,
     .chart-range-nav, .range-readout,
     .remove-btn, .add-btn, .withdraw-order-arrows,
@@ -795,12 +868,33 @@
 </head>
 <body>
 
+<div class="cloud-auth-overlay" id="cloudAuthOverlay" role="dialog" aria-modal="true" aria-labelledby="cloudAuthTitle">
+  <div class="cloud-auth-card">
+    <h2 id="cloudAuthTitle">Michael &amp; Cynthia's Retirement</h2>
+    <p>Sign in to securely load and synchronize your retirement plan across your computers and phones.</p>
+    <form onsubmit="signInToPlanner(event)">
+      <div class="field"><label for="cloudAuthEmail">Email</label><input type="email" id="cloudAuthEmail" autocomplete="username" required></div>
+      <div class="field"><label for="cloudAuthPassword">Password</label><input type="password" id="cloudAuthPassword" autocomplete="current-password" required></div>
+      <div class="auth-actions">
+        <button type="submit" class="add-btn auth-primary" id="cloudSignInBtn">Sign in &amp; load plan</button>
+        <button type="button" class="add-btn auth-secondary" onclick="continuePlannerOffline()">Continue offline</button>
+      </div>
+    </form>
+    <button type="button" class="link-btn" style="margin-top:14px;" onclick="sendPlannerPasswordReset()">Forgot password?</button>
+    <div class="cloud-auth-message" id="cloudAuthMessage"></div>
+    <p style="font-size:13.5px;margin:16px 0 0;color:var(--muted);">Offline mode uses only the copy saved on this device. Sign in when internet access returns to synchronize it.</p>
+  </div>
+</div>
+
 <div class="sticky-app-bar">
   <button class="hamburger-btn" onclick="toggleMenu()" aria-label="Open menu">☰</button>
   <div class="sticky-section-info">
     <span class="sticky-section-caption">Current section</span>
     <span class="current-page-label" id="currentPageLabel">Overview</span>
   </div>
+  <button type="button" class="cloud-sync-badge" id="cloudSyncBadge" data-state="checking" onclick="showPage('settings')" title="Open synchronization settings">
+    <span class="cloud-sync-dot" aria-hidden="true"></span><span id="cloudSyncBadgeText">Checking</span>
+  </button>
 </div>
 
 <header>
@@ -977,10 +1071,10 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Personal</h3>
         <div class="two-col">
-          <div class="field"><label>Current age</label><input type="number" id="currentAge" value="52" min="18" max="90"></div>
+          <div class="field"><label>Current age</label><input type="number" id="currentAge" value="55" min="18" max="90"></div>
           <div class="field">
             <label>Retirement age</label>
-            <input type="number" id="retirementAge" value="55" min="40" max="90" oninput="syncRetirementDateFromAge()">
+            <input type="number" id="retirementAge" value="60" min="40" max="90" oninput="syncRetirementDateFromAge()">
             <div class="pill-row">
               <span class="pill" id="pill55" onclick="setRetirementAge(55)">Retire at 55</span>
               <span class="pill" id="pill56" onclick="setRetirementAge(56)">Retire at 56</span>
@@ -992,15 +1086,15 @@
         </div>
         <div class="field">
           <label>Planned last working day</label>
-          <input type="date" id="retirementDate" value="2028-12-31" oninput="syncRetirementDate(true)">
+          <input type="date" id="retirementDate" value="" oninput="syncRetirementDate(true)">
           <div id="retirementDateHint" style="font-size:16.5px;color:var(--muted);margin-top:4px;"></div>
         </div>
         <div class="field"><label>Plan until age (your life expectancy)</label><input type="number" id="lifeExpectancy" value="95" min="60" max="105"></div>
         <div class="field">
           <label>Your birthdate</label>
-          <input type="date" id="birthDate" value="1973-11-12" oninput="syncAgeFromBirthDate('birthDate','currentAge','birthMonth','birthDateHint')">
+          <input type="date" id="birthDate" value="" oninput="syncAgeFromBirthDate('birthDate','currentAge','birthMonth','birthDateHint')">
           <div id="birthDateHint" style="font-size:16.5px;color:var(--muted);margin-top:4px;"></div>
-          <input type="hidden" id="birthMonth" value="11">
+          <input type="hidden" id="birthMonth" value="1">
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">Used to prorate the first calendar year of any income that starts on your age (pension, VA disability, Social Security, annuity) — you only actually receive it from your birthday through year-end that first year, not a full 12 months.</p>
       </div>
@@ -1008,14 +1102,14 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Spouse</h3>
         <div class="two-col">
-          <div class="field"><label>Spouse's current age</label><input type="number" id="spouseAge" value="50" min="18" max="90"></div>
+          <div class="field"><label>Spouse's current age</label><input type="number" id="spouseAge" value="55" min="18" max="90"></div>
           <div class="field"><label>Spouse's life expectancy</label><input type="number" id="spouseLifeExpectancy" value="95" min="60" max="105"></div>
         </div>
         <div class="field">
           <label>Spouse's birthdate</label>
-          <input type="date" id="spouseBirthDate" value="1975-11-14" oninput="syncAgeFromBirthDate('spouseBirthDate','spouseAge','spouseBirthMonth','spouseBirthDateHint')">
+          <input type="date" id="spouseBirthDate" value="" oninput="syncAgeFromBirthDate('spouseBirthDate','spouseAge','spouseBirthMonth','spouseBirthDateHint')">
           <div id="spouseBirthDateHint" style="font-size:16.5px;color:var(--muted);margin-top:4px;"></div>
-          <input type="hidden" id="spouseBirthMonth" value="11">
+          <input type="hidden" id="spouseBirthMonth" value="1">
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">Used to prorate the first calendar year of the spousal Social Security benefit (and, in the Survivorship what-if, DIC/SBP) to whatever portion of that year falls after their birthday.</p>
         <div class="checkbox-row">
@@ -1041,7 +1135,7 @@
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Income</h3>
-        <div class="field"><label>Current annual job income ($)</label><input type="number" id="currentIncome" value="77432" step="1"></div>
+        <div class="field"><label>Current annual job income ($)</label><input type="number" id="currentIncome" value="0" step="1"></div>
         <div class="field"><label>Expected annual raise (%)</label><input type="number" id="incomeGrowth" value="2.5" step="0.1"></div>
       </div>
 
@@ -1049,18 +1143,18 @@
         <h3 onclick="toggleCard(this)">Pensions &amp; VA Disability</h3>
         <div class="mini-label">Military Pension</div>
         <div class="three-col">
-          <div class="field"><label>Military Pension ($/yr, today's $)</label><input type="number" id="pensionAnnual" value="29964" step="1"></div>
-          <div class="field"><label>Pension start age</label><input type="number" id="pensionAge" value="52" min="40" max="90" oninput="syncDateFromAge('pensionAge','pensionAgeDate','pensionAgeDateHint','currentAge')">
-            <input type="month" id="pensionAgeDate" class="age-date-input" value="2026-01" oninput="syncAgeDate('pensionAgeDate','pensionAge','pensionAgeDateHint','currentAge')">
+          <div class="field"><label>Military Pension ($/yr, today's $)</label><input type="number" id="pensionAnnual" value="0" step="1"></div>
+          <div class="field"><label>Pension start age</label><input type="number" id="pensionAge" value="60" min="40" max="90" oninput="syncDateFromAge('pensionAge','pensionAgeDate','pensionAgeDateHint','currentAge')">
+            <input type="month" id="pensionAgeDate" class="age-date-input" value="" oninput="syncAgeDate('pensionAgeDate','pensionAge','pensionAgeDateHint','currentAge')">
             <div id="pensionAgeDateHint" class="age-date-hint"></div>
           </div>
           <div class="field"><label>Pension yearly increase (%)</label><input type="number" id="pensionGrowth" value="2.5" step="0.1"></div>
         </div>
         <div class="mini-label">Government Civil Service</div>
         <div class="three-col">
-          <div class="field"><label>Government Civil Service Pension ($/yr, today's $)</label><input type="number" id="pension2Annual" value="11148" step="1"></div>
+          <div class="field"><label>Government Civil Service Pension ($/yr, today's $)</label><input type="number" id="pension2Annual" value="0" step="1"></div>
           <div class="field"><label>Government Civil Service Pension start age</label><input type="number" id="pension2Age" value="62" min="40" max="90" oninput="syncDateFromAge('pension2Age','pension2AgeDate','pension2AgeDateHint','currentAge')">
-            <input type="month" id="pension2AgeDate" class="age-date-input" value="2035-11" oninput="syncAgeDate('pension2AgeDate','pension2Age','pension2AgeDateHint','currentAge')">
+            <input type="month" id="pension2AgeDate" class="age-date-input" value="" oninput="syncAgeDate('pension2AgeDate','pension2Age','pension2AgeDateHint','currentAge')">
             <div id="pension2AgeDateHint" class="age-date-hint"></div>
           </div>
           <div class="field"><label>Government Civil Service Pension yearly increase (%)</label><input type="number" id="pension2Growth" value="2.5" step="0.1"></div>
@@ -1068,9 +1162,9 @@
         <hr class="divider">
         <div class="mini-label">VA Disability</div>
         <div class="three-col">
-          <div class="field"><label>VA Disability Compensation ($/yr, tax-free, today's $)</label><input type="number" id="vaDisabilityAnnual" value="49898" step="1"></div>
-          <div class="field"><label>VA Disability start age</label><input type="number" id="vaDisabilityAge" value="52" min="40" max="90" oninput="syncDateFromAge('vaDisabilityAge','vaDisabilityAgeDate','vaDisabilityAgeDateHint','currentAge')">
-            <input type="month" id="vaDisabilityAgeDate" class="age-date-input" value="2026-01" oninput="syncAgeDate('vaDisabilityAgeDate','vaDisabilityAge','vaDisabilityAgeDateHint','currentAge')">
+          <div class="field"><label>VA Disability Compensation ($/yr, tax-free, today's $)</label><input type="number" id="vaDisabilityAnnual" value="0" step="1"></div>
+          <div class="field"><label>VA Disability start age</label><input type="number" id="vaDisabilityAge" value="60" min="40" max="90" oninput="syncDateFromAge('vaDisabilityAge','vaDisabilityAgeDate','vaDisabilityAgeDateHint','currentAge')">
+            <input type="month" id="vaDisabilityAgeDate" class="age-date-input" value="" oninput="syncAgeDate('vaDisabilityAgeDate','vaDisabilityAge','vaDisabilityAgeDateHint','currentAge')">
             <div id="vaDisabilityAgeDateHint" class="age-date-hint"></div>
           </div>
           <div class="field"><label>VA yearly increase (%)</label><input type="number" id="vaDisabilityGrowth" value="2.5" step="0.1"></div>
@@ -1083,16 +1177,16 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Guaranteed Income</h3>
         <div class="two-col">
-          <div class="field"><label>Your Social Security ($/mo, today's $)</label><input type="number" id="ssMonthly" value="2208" step="50"></div>
-          <div class="field"><label>Your SS start age</label><input type="number" id="ssAge" value="65" min="62" max="70" oninput="syncDateFromAge('ssAge','ssAgeDate','ssAgeDateHint','currentAge')">
-            <input type="month" id="ssAgeDate" class="age-date-input" value="2038-11" oninput="syncAgeDate('ssAgeDate','ssAge','ssAgeDateHint','currentAge')">
+          <div class="field"><label>Your Social Security ($/mo, today's $)</label><input type="number" id="ssMonthly" value="0" step="50"></div>
+          <div class="field"><label>Your SS start age</label><input type="number" id="ssAge" value="67" min="62" max="70" oninput="syncDateFromAge('ssAge','ssAgeDate','ssAgeDateHint','currentAge')">
+            <input type="month" id="ssAgeDate" class="age-date-input" value="" oninput="syncAgeDate('ssAgeDate','ssAge','ssAgeDateHint','currentAge')">
             <div id="ssAgeDateHint" class="age-date-hint"></div>
           </div>
         </div>
         <div class="two-col" id="spousalBenefitFields">
           <div class="field"><label>Spousal benefit (% of your benefit)</label><input type="number" id="spousalPct" value="50" min="0" max="50" step="1"></div>
           <div class="field"><label>Spousal benefit start age (spouse's age)</label><input type="number" id="spousalStartAge" value="67" min="62" max="70" oninput="syncDateFromAge('spousalStartAge','spousalStartAgeDate','spousalStartAgeDateHint','spouseAge')">
-            <input type="month" id="spousalStartAgeDate" class="age-date-input" value="2042-11" oninput="syncAgeDate('spousalStartAgeDate','spousalStartAge','spousalStartAgeDateHint','spouseAge')">
+            <input type="month" id="spousalStartAgeDate" class="age-date-input" value="" oninput="syncAgeDate('spousalStartAgeDate','spousalStartAge','spousalStartAgeDateHint','spouseAge')">
             <div id="spousalStartAgeDateHint" class="age-date-hint"></div>
           </div>
         </div>
@@ -1100,7 +1194,7 @@
         <div class="mini-label">Annuity</div>
         <div class="three-col">
           <div class="field"><label>Annuity payout ($/mo, today's $)</label><input type="number" id="annuityMonthly" value="0" step="50"></div>
-          <div class="field"><label>Annuity start age (0 = none)</label><input type="number" id="annuityStartAge" value="0" min="0" max="95" oninput="syncDateFromAge('annuityStartAge','annuityStartAgeDate','annuityStartAgeDateHint','currentAge')">
+          <div class="field"><label>Annuity start age (0 = none)</label><input type="number" id="annuityStartAge" value="67" min="0" max="95" oninput="syncDateFromAge('annuityStartAge','annuityStartAgeDate','annuityStartAgeDateHint','currentAge')">
             <input type="month" id="annuityStartAgeDate" class="age-date-input" oninput="syncAgeDate('annuityStartAgeDate','annuityStartAge','annuityStartAgeDateHint','currentAge')" value="">
             <div id="annuityStartAgeDateHint" class="age-date-hint"></div>
           </div>
@@ -1131,37 +1225,37 @@
         <h3 onclick="toggleCard(this)">Survivorship: SBP &amp; DIC<span class="sub-label">Separate scenario — does not change your main plan or primary confidence score</span></h3>
         <p style="font-size:16.5px;color:var(--muted);margin:0 0 10px;line-height:1.6;">Set an assumed age below to test survivorship separately. In that scenario, pensions and VA disability stop, Social Security becomes the single survivor benefit, and enabled SBP/DIC benefits take over. The main household projection remains unchanged.</p>
         <div class="three-col">
-          <div class="field"><label>Assumed age you predecease your spouse</label><input type="number" id="survivorshipDeathAge" value="75" min="0" max="100"></div>
+          <div class="field"><label>Assumed age you predecease your spouse</label><input type="number" id="survivorshipDeathAge" value="85" min="0" max="100"></div>
           <div class="field"><label>Overall survivor spending estimate (%) — reference only</label><input type="number" id="survivorSpendingPct" value="55" min="10" max="150" step="5"></div>
-          <div class="field"><label>Life insurance payout to spouse (VGLI, lump sum)</label><input type="number" id="survivorLifeInsuranceAmount" value="100000" min="0" step="1000"></div>
+          <div class="field"><label>Life insurance payout to spouse (VGLI, lump sum)</label><input type="number" id="survivorLifeInsuranceAmount" value="0" min="0" step="1000"></div>
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">Paid out as a one-time lump sum when the separate survivorship scenario begins and added to the brokerage pies. Set to $0 if not applicable.</p>
         <hr class="divider">
         <div class="mini-label">SBP on Military Pension</div>
-        <div class="checkbox-row"><input type="checkbox" id="sbp1Enabled" onchange="render()" checked><label for="sbp1Enabled">SBP elected on Military Pension</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="sbp1Enabled" onchange="render()"><label for="sbp1Enabled">SBP elected on Military Pension</label></div>
         <div class="two-col">
           <div class="field"><label>SBP coverage (% of pension)</label><input type="number" id="sbp1Pct" value="55" min="0" max="55" step="1"></div>
-          <div class="field"><label>SBP premium reference ($/mo)</label><input type="number" id="sbp1PremiumMonthly" value="162" step="1"></div>
+          <div class="field"><label>SBP premium reference ($/mo)</label><input type="number" id="sbp1PremiumMonthly" value="0" step="1"></div>
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">= <span id="sbp1Computed">$0</span>/mo to spouse, taxable, based on your current Military Pension amount</p>
         <div class="mini-label">Survivor Annuity on Government Civil Service Pension</div>
-        <div class="checkbox-row"><input type="checkbox" id="sbp2Enabled" onchange="render()" checked><label for="sbp2Enabled">Survivor annuity elected on Government Civil Service pension</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="sbp2Enabled" onchange="render()"><label for="sbp2Enabled">Survivor annuity elected on Government Civil Service pension</label></div>
         <div class="two-col">
           <div class="field"><label>Survivor annuity coverage (% of pension)</label><input type="number" id="sbp2Pct" value="50" min="0" max="50" step="1"></div>
           <div class="field"><label>Premium you pay now ($/mo)</label><input type="number" id="sbp2PremiumMonthly" value="0" step="5"></div>
         </div>
         <p style="font-size:16px;color:var(--muted);margin:2px 0 0;">= <span id="sbp2Computed">$0</span>/mo to spouse, taxable, based on your current Government Civil Service pension amount</p>
         <div class="mini-label">VA Dependency &amp; Indemnity Compensation (DIC)</div>
-        <div class="checkbox-row"><input type="checkbox" id="dicEligible" checked><label for="dicEligible">Spouse likely DIC-eligible</label></div>
-        <div class="field"><label>DIC amount ($/mo, tax-free — 2026 base rate is $1,699.36)</label><input type="number" id="dicMonthlyAmount" value="1699" step="1"></div>
-        <div class="checkbox-row"><input type="checkbox" id="dicAidAttendanceEnabled" checked><label for="dicAidAttendanceEnabled">Add DIC Aid &amp; Attendance while spouse long-term care is active</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="dicEligible"><label for="dicEligible">Spouse likely DIC-eligible</label></div>
+        <div class="field"><label>DIC amount ($/mo, tax-free — 2026 base rate is $1,699.36)</label><input type="number" id="dicMonthlyAmount" value="0" step="1"></div>
+        <div class="checkbox-row"><input type="checkbox" id="dicAidAttendanceEnabled"><label for="dicAidAttendanceEnabled">Add DIC Aid &amp; Attendance while spouse long-term care is active</label></div>
         <div class="field"><label>DIC Aid &amp; Attendance addition ($/mo, tax-free — 2026 rate)</label><input type="number" id="dicAidAttendanceMonthly" value="421" min="0" step="1"></div>
         <div class="note" style="margin-top:8px;"><b>After your death:</b> If she receives DIC and medically qualifies for Aid &amp; Attendance, the current addition is <b>$421 per month</b>. The planner adds it only during the spouse LTC start age and duration entered under Medical. It replaces—not stacks with—the $201.41 dependent-spouse addition paid to you while you are alive. VA approval is required, and the rate should be reviewed annually.</div>
         <hr class="divider">
         <div class="mini-label">Survivor tax treatment</div>
         <div class="checkbox-row"><input type="checkbox" id="survivorQualifyingSpouseTwoYears"><label for="survivorQualifyingSpouseTwoYears">Use Qualifying Surviving Spouse tax rates for two years after death (requires a qualifying dependent child)</label></div>
         <div class="field"><label>Single standard deduction ($/yr, 2026)</label><input type="number" id="survivorSingleStdDeduction" value="15750" min="0" step="50"></div>
-        <div class="checkbox-row"><input type="checkbox" id="survivorSpousalRollover" checked><label for="survivorSpousalRollover">Assume spouse rolls the Traditional TSP into her own retirement account; use her age for RMDs</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="survivorSpousalRollover"><label for="survivorSpousalRollover">Assume spouse rolls the Traditional TSP into her own retirement account; use her age for RMDs</label></div>
         <div class="note" style="margin-top:8px;">The year of death uses Married Filing Jointly assumptions. After that, the planner uses Single federal, capital-gains, Idaho and IRMAA thresholds unless the qualifying-surviving-spouse option above is selected. That two-year status generally requires a qualifying dependent child. DIC and DIC Aid &amp; Attendance remain tax-free.</div>
         <p style="font-size:16.5px;color:var(--muted);margin:8px 0 0;line-height:1.5;">Military SBP pays 55% of your pension and is taxable income to your spouse; Government Civil Service survivor annuities max out at 50%. Both auto-calculate from your entered gross pension amounts and grow at that pension's own yearly increase rate. Your $162 monthly Military SBP deduction is modeled as an Insurance premium while you are alive, so the reference amount above is not added a second time. The Insurance premium stops in the separate survivorship scenario. DIC is tax-free and, since Jan. 2023, no longer offsets SBP.</p>
       </div>
@@ -1170,12 +1264,12 @@
         <h3 onclick="toggleCard(this)">Survivorship: Expense Adjustments<span class="sub-label">What changes about your spouse's costs once you're gone</span></h3>
         <p style="font-size:16.5px;color:var(--muted);margin:0 0 10px;line-height:1.6;">Every recurring cost — housing, medical, and everything from the Expenses, Debt, and Insurance pages — is listed below, checked "continues" by default with its current amount. Uncheck anything that stops once you're gone (paid off by a life insurance payout, a debt that was solely yours, a subscription only you used), or edit the amount if it would change rather than disappear (a smaller place, a new cost like paid help). This feeds both the numbers below and the real projection on the Explorers page.</p>
         <div class="mini-label" style="margin-bottom:2px;">Housing</div>
-        <div class="checkbox-row"><input type="checkbox" id="survivorHousingContinues" onchange="render()" checked><label for="survivorHousingContinues">Housing (rent or mortgage/property tax/insurance) continues</label></div>
-        <div class="field"><label>Override housing cost once you're gone ($/mo, today's $ — leave blank to use the actual projected cost)</label><input type="number" id="survivorHousingAmountOverride" value="2000" placeholder="Use projected cost" step="25"></div>
+        <div class="checkbox-row"><input type="checkbox" id="survivorHousingContinues" onchange="render()"><label for="survivorHousingContinues">Housing (rent or mortgage/property tax/insurance) continues</label></div>
+        <div class="field"><label>Override housing cost once you're gone ($/mo, today's $ — leave blank to use the actual projected cost)</label><input type="number" id="survivorHousingAmountOverride" value="0" placeholder="Use projected cost" step="25"></div>
         <hr class="divider">
         <div class="mini-label" style="margin-bottom:2px;">Medical (Tricare / Medicare Part B / FEDVIP)</div>
-        <div class="checkbox-row"><input type="checkbox" id="survivorMedicalContinues" onchange="render()" checked><label for="survivorMedicalContinues">Her Tricare/Medicare Part B/FEDVIP continues</label></div>
-        <div class="field"><label>Her own FEDVIP once she's on Medicare ($/mo, today's $)</label><input type="number" id="survivorFedvipMonthly" value="116" step="5"></div>
+        <div class="checkbox-row"><input type="checkbox" id="survivorMedicalContinues" onchange="render()"><label for="survivorMedicalContinues">Her Tricare/Medicare Part B/FEDVIP continues</label></div>
+        <div class="field"><label>Her own FEDVIP once she's on Medicare ($/mo, today's $)</label><input type="number" id="survivorFedvipMonthly" value="0" step="5"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;background:var(--teal-light,#e6f3f1);border-radius:8px;padding:10px 14px;margin-top:8px;">
           <span style="font-size:16px;color:var(--text);">Her <b>Medicare Part B</b> (auto, from Medical page): <b><span id="survivorPartBReadout">$0</span></b>/mo + FEDVIP above</span>
           <span style="font-size:16px;color:var(--text);">Combined once she's on Medicare: <span style="font-size:19px;font-weight:700;color:var(--teal);"><span id="survivorMedicalCombinedReadout">$0</span>/mo</span></span>
@@ -1211,10 +1305,10 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Investment Contributions<span class="sub-label">How much goes in each pay period</span></h3>
         <div class="two-col">
-          <div class="field"><label>Traditional TSP (% of income)</label><input type="number" id="tradTSPPct" value="12" step="0.5"></div>
-          <div class="field"><label>Roth TSP (% of income)</label><input type="number" id="rothTSPPct" value="12" step="0.5"></div>
+          <div class="field"><label>Traditional TSP (% of income)</label><input type="number" id="tradTSPPct" value="0" step="0.5"></div>
+          <div class="field"><label>Roth TSP (% of income)</label><input type="number" id="rothTSPPct" value="0" step="0.5"></div>
         </div>
-        <div class="field"><label>Agency match (up to % of income)</label><input type="number" id="matchPct" value="5" step="0.5"></div>
+        <div class="field"><label>Agency match (up to % of income)</label><input type="number" id="matchPct" value="0" step="0.5"></div>
       </div>
 
       <div class="card">
@@ -1226,7 +1320,7 @@
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Excess Income Savings<span class="sub-label">Automatically invest a share of whatever's left over each year, on top of the contributions above</span></h3>
-        <div class="field"><label>Save this % of leftover income (into Brokerage)</label><input type="number" id="excessIncomeSavingsPct" value="35" step="5" min="0" max="100"></div>
+        <div class="field"><label>Save this % of leftover income (into Brokerage)</label><input type="number" id="excessIncomeSavingsPct" value="0" step="5" min="0" max="100"></div>
         <div class="field"><label>Deposit into</label>
           <select id="excessIncomeDestinationPie" onchange="updateExcessIncomeDestination(this.value)"></select>
         </div>
@@ -1294,8 +1388,8 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">TSP — Thrift Savings Plan<span class="sub-label">Agency match always deposits into Traditional TSP</span></h3>
         <div class="two-col">
-          <div class="field"><label>Traditional TSP balance ($)</label><input type="number" id="tradTSPBalance" value="101951" step="1"></div>
-          <div class="field"><label>Roth TSP balance ($)</label><input type="number" id="rothTSPBalance" value="82367" step="1"></div>
+          <div class="field"><label>Traditional TSP balance ($)</label><input type="number" id="tradTSPBalance" value="0" step="1"></div>
+          <div class="field"><label>Roth TSP balance ($)</label><input type="number" id="rothTSPBalance" value="0" step="1"></div>
         </div>
         <div class="two-col">
           <div class="field"><label>Traditional TSP annual fee/expense ratio (%)</label><input type="number" id="tradTSPFee" value="0" min="0" max="5" step="0.01"></div>
@@ -1316,9 +1410,9 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Bank Accounts<span class="sub-label">Liquidity — available to fund projected shortfalls</span></h3>
         <div class="three-col">
-          <div class="field"><label>Checking ($)</label><input type="number" id="checkingBalance" value="792" step="500"></div>
-          <div class="field"><label>Savings ($)</label><input type="number" id="savingsBalance" value="25" step="500"></div>
-          <div class="field"><label>HYSA ($)</label><input type="number" id="hysaBalance" value="7250" step="500"></div>
+          <div class="field"><label>Checking ($)</label><input type="number" id="checkingBalance" value="0" step="500"></div>
+          <div class="field"><label>Savings ($)</label><input type="number" id="savingsBalance" value="0" step="500"></div>
+          <div class="field"><label>HYSA ($)</label><input type="number" id="hysaBalance" value="0" step="500"></div>
         </div>
         <p style="font-size:14.5px;color:var(--muted);margin:4px 0 12px;">These planning balances are entered manually. Accounts &amp; Cards remains separate and cannot change them.</p>
         <div class="two-col">
@@ -1389,7 +1483,7 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Housing</h3>
         <div class="two-col">
-          <div class="field"><label>Monthly rent ($)</label><input type="number" id="rentMonthly" value="2625" step="10"></div>
+          <div class="field"><label>Monthly rent ($)</label><input type="number" id="rentMonthly" value="0" step="10"></div>
           <div class="field"><label>Annual rent growth (%)</label><input type="number" id="rentGrowth" value="3" step="0.1"></div>
         </div>
         <div class="checkbox-row">
@@ -1398,11 +1492,11 @@
         </div>
         <div class="sub-fields" id="buyHomeFields" style="display:none;">
           <div class="two-col">
-            <div class="field"><label>Purchase age</label><input type="number" id="purchaseAge" value="60" min="18" max="95" oninput="syncDateFromAge('purchaseAge','purchaseAgeDate','purchaseAgeDateHint','currentAge')">
+            <div class="field"><label>Purchase age</label><input type="number" id="purchaseAge" value="65" min="18" max="95" oninput="syncDateFromAge('purchaseAge','purchaseAgeDate','purchaseAgeDateHint','currentAge')">
               <input type="month" id="purchaseAgeDate" class="age-date-input" oninput="syncAgeDate('purchaseAgeDate','purchaseAge','purchaseAgeDateHint','currentAge')" value="">
               <div id="purchaseAgeDateHint" class="age-date-hint"></div>
             </div>
-            <div class="field"><label>Home price ($)</label><input type="number" id="homePrice" value="350000" step="5000"></div>
+            <div class="field"><label>Home price ($)</label><input type="number" id="homePrice" value="0" step="5000"></div>
           </div>
           <div class="two-col">
             <div class="field"><label>Down payment (%)</label><input type="number" id="downPct" value="20" step="1"></div>
@@ -1540,14 +1634,14 @@
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Pre-Medicare — Tricare<span class="sub-label">Covers both of you until each of you reaches Medicare age</span></h3>
-        <div class="field"><label>Tricare premium ($/mo, today's $, covers both of you)</label><input type="number" id="tricareMonthly" value="63" step="10"></div>
+        <div class="field"><label>Tricare premium ($/mo, today's $, covers both of you)</label><input type="number" id="tricareMonthly" value="0" step="10"></div>
         <hr class="divider">
         <div class="mini-label" style="margin-bottom:2px;">FEDVIP</div>
         <div class="mini-label">Hearing, Vision &amp; Dental (Tricare)<span class="sub-label" style="display:inline; text-transform:none; font-weight:400;"> — covers both of you</span></div>
         <div class="three-col">
           <div class="field"><label>Hearing ($/mo, today's $)</label><input type="number" id="tricareHearingMonthly" value="0" step="5"></div>
-          <div class="field"><label>Vision/Eyes ($/mo, today's $)</label><input type="number" id="tricareVisionMonthly" value="24" step="5"></div>
-          <div class="field"><label>Dental ($/mo, today's $)</label><input type="number" id="tricareDentalMonthly" value="92" step="5"></div>
+          <div class="field"><label>Vision/Eyes ($/mo, today's $)</label><input type="number" id="tricareVisionMonthly" value="0" step="5"></div>
+          <div class="field"><label>Dental ($/mo, today's $)</label><input type="number" id="tricareDentalMonthly" value="0" step="5"></div>
         </div>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Applies whenever at least one of you hasn't yet reached Medicare age — your spouse stays on your Tricare coverage even after you individually age into Medicare, until she reaches Medicare age herself. Same rule for the hearing/vision/dental add-ons above.</p>
       </div>
@@ -1571,8 +1665,8 @@
         <div class="mini-label">Your Hearing, Vision &amp; Dental<span class="sub-label" style="display:inline; text-transform:none; font-weight:400;"> — Original Medicare Part B doesn't cover these, so they're broken out separately; your plan covers your spouse too, so there's no separate spouse cost</span></div>
         <div class="three-col">
           <div class="field"><label>Hearing ($/mo, today's $)</label><input type="number" id="hearingMonthly" value="0" step="5"></div>
-          <div class="field"><label>Vision/Eyes ($/mo, today's $)</label><input type="number" id="visionMonthly" value="24" step="5"></div>
-          <div class="field"><label>Dental ($/mo, today's $)</label><input type="number" id="dentalMonthly" value="92" step="5"></div>
+          <div class="field"><label>Vision/Eyes ($/mo, today's $)</label><input type="number" id="visionMonthly" value="0" step="5"></div>
+          <div class="field"><label>Dental ($/mo, today's $)</label><input type="number" id="dentalMonthly" value="0" step="5"></div>
         </div>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">All figures grow with Medical Inflation (Assumptions page) and are added on top of anything in the Healthcare category on the Expenses page. Since your ages differ, there's a stretch where one of you is on Part B while the other is still on Tricare — both costs apply during that gap. Hearing, vision, and dental start once you reach Medicare age and cover both of you.</p>
       </div>
@@ -1580,13 +1674,13 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Long-Term Care (spouse)<span class="sub-label">Roth TSP first, then other accessible household accounts</span></h3>
         <div class="checkbox-row">
-          <input type="checkbox" id="ltcEnabled" checked>
+          <input type="checkbox" id="ltcEnabled">
           <label for="ltcEnabled">Model long-term care costs for spouse, using Roth TSP first and other accessible household accounts if Roth runs short</label>
         </div>
         <div class="sub-fields" id="ltcFields">
           <div class="two-col">
-            <div class="field"><label>LTC start age (spouse's age)</label><input type="number" id="ltcStartAge" value="93" min="60" max="105" oninput="syncDateFromAge('ltcStartAge','ltcStartAgeDate','ltcStartAgeDateHint','spouseAge')">
-              <input type="month" id="ltcStartAgeDate" class="age-date-input" oninput="syncAgeDate('ltcStartAgeDate','ltcStartAge','ltcStartAgeDateHint','spouseAge')" value="2068-11">
+            <div class="field"><label>LTC start age (spouse's age)</label><input type="number" id="ltcStartAge" value="90" min="60" max="105" oninput="syncDateFromAge('ltcStartAge','ltcStartAgeDate','ltcStartAgeDateHint','spouseAge')">
+              <input type="month" id="ltcStartAgeDate" class="age-date-input" oninput="syncAgeDate('ltcStartAgeDate','ltcStartAge','ltcStartAgeDateHint','spouseAge')" value="">
               <div id="ltcStartAgeDateHint" class="age-date-hint"></div>
             </div>
             <div class="field"><label>Duration (years)</label><input type="number" id="ltcDuration" value="2" min="1" max="20"></div>
@@ -1595,7 +1689,7 @@
             <label>Type of care (Boise, ID area estimates)</label>
             <select id="ltcCareType" onchange="updateLtcCareType(this.value)">
               <option value="custom">Custom amount (enter below)</option>
-              <option value="inhome_parttime" selected>In-home care — part-time (~20 hrs/wk) — care cost only</option>
+              <option value="inhome_parttime">In-home care — part-time (~20 hrs/wk) — care cost only</option>
               <option value="inhome_parttime_va">In-home care — part-time (~20 hrs/wk) + VA spouse A&amp;A ($201.41/mo)</option>
               <option value="va_spouse_aa_only">VA spouse A&amp;A ($201.41/mo) only — no paid-care cost</option>
               <option value="inhome_fulltime">In-home care — full-time (~50+ hrs/wk)</option>
@@ -1606,7 +1700,7 @@
               <option value="none">Will not need long-term care</option>
             </select>
           </div>
-          <div class="field"><label>Annual cost (today's $, grows with Medical Inflation)</label><input type="number" id="ltcAnnualCost" value="31200" step="1000"></div>
+          <div class="field"><label>Annual cost (today's $, grows with Medical Inflation)</label><input type="number" id="ltcAnnualCost" value="0" step="1000"></div>
           <div id="ltcVaAidReadout" class="note" style="display:none;margin-top:8px;"></div>
           <div class="note" style="margin-top:8px;">
             <b>VA spouse Aid &amp; Attendance / SMC add-on:</b> The $201.41 monthly amount is modeled as additional tax-free VA compensation paid to the veteran while a dependent spouse medically qualifies for Aid &amp; Attendance. It has no income or net-worth test, but it is not automatic: VA medical approval is required, it applies only while the spouse meets the criteria, and the 2026 rate should be reviewed each year. This is separate from survivor Aid &amp; Attendance after the veteran's death.
@@ -1769,7 +1863,7 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Rule of 55</h3>
         <div class="checkbox-row">
-          <input type="checkbox" id="ruleOf55Applies" checked>
+          <input type="checkbox" id="ruleOf55Applies">
           <label for="ruleOf55Applies">Rule of 55 applies — no 10% early-withdrawal penalty on Traditional TSP</label>
         </div>
         <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">You separate from federal service in the year you turn 55 or later, so Traditional TSP withdrawals avoid the usual 10% penalty before age 59½. Uncheck this to see what happens if that assumption doesn't hold (e.g. money later rolled into an IRA loses Rule of 55 protection).</p>
@@ -1786,7 +1880,7 @@
           <div class="field"><label>Start age</label><input type="number" id="rothConversionStartAge" value="55" min="40" max="90" onchange="render()"></div>
           <div class="field"><label>End age</label><input type="number" id="rothConversionEndAge" value="75" min="40" max="90" onchange="render()"></div>
         </div>
-        <div class="field"><label>Amount to convert each year ($)</label><input type="number" id="rothConversionAnnualAmount" value="20000" step="1000" onchange="render()"></div>
+        <div class="field"><label>Amount to convert each year ($)</label><input type="number" id="rothConversionAnnualAmount" value="0" step="1000" onchange="render()"></div>
         <div class="field"><label>Pay the conversion tax from</label><select id="rothConversionTaxSource" onchange="updateRothConversionSource(this.value)"></select></div>
         <p style="font-size:15px;color:var(--muted);margin:6px 0 0;line-height:1.5;">If the chosen account can't fully cover the tax bill in a given year, that year's conversion is scaled down to whatever it can cover — never paid out of the TSP itself, and never overdrawn.</p>
         <div id="rothConversionComparisonWrap" style="display:none;">
@@ -2153,8 +2247,23 @@
       <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations.</p></div>
 
       <div class="card">
+        <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
+        <div class="cloud-account-summary">
+          <div><strong id="cloudSettingsStatus">Checking connection…</strong><span id="cloudAccountEmail">No signed-in account detected yet</span></div>
+          <span id="cloudSettingsDot" class="cloud-sync-dot" aria-hidden="true"></span>
+        </div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;">
+          <button type="button" class="add-btn" id="cloudSyncNowBtn" onclick="syncCloudNow(true)">Synchronize now</button>
+          <button type="button" class="add-btn" style="background:#eef3f5;color:var(--navy);" id="cloudSignInSettingsBtn" onclick="showPlannerSignIn()">Sign in</button>
+          <button type="button" class="add-btn" style="background:#fdf3f1;color:var(--danger);display:none;" id="cloudSignOutBtn" onclick="signOutOfPlanner()">Sign out</button>
+        </div>
+        <p class="cloud-status-detail" id="cloudStatusDetail">Your local planner remains available while the secure connection is checked.</p>
+        <p style="font-size:14px;color:var(--muted);margin:10px 0 0;line-height:1.5;">The retirement plan and shared Notes synchronize after changes. Accounts &amp; Cards, Document Vault files, Coach conversations, and your Anthropic API key remain only on this device. Continue downloading an occasional JSON backup as an independent recovery copy.</p>
+      </div>
+
+      <div class="card">
         <h3 onclick="toggleCard(this)">Backup &amp; Restore</h3>
-        <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Your planner data is saved automatically in this browser, but it is tied to this browser/device. The JSON backup contains the retirement plan but never includes your Anthropic API key. Accounts &amp; Cards and Document Vault remain separate; use their own exports or keep copies of the original files.</p>
+        <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Your planner data is saved automatically on this device and, while signed in, synchronized through Supabase. The JSON backup remains an independent recovery copy and never includes your Anthropic API key. Accounts &amp; Cards and Document Vault remain separate; use their own exports or keep copies of the original files.</p>
         <button class="add-btn" onclick="downloadBackup()">Download planner backup (.json)</button>
         <div class="field" style="margin-top:14px;">
           <label>Restore from backup</label>
@@ -5263,6 +5372,7 @@ function activateExplorerAnalysis(analysisId, scrollToSection = true, persist = 
       localStorage.setItem(EXPLORER_ANALYSIS_KEY, analysisId);
       localStorage.setItem(ACTIVE_PAGE_KEY, 'explorers');
     } catch (e) { /* storage unavailable, ignore */ }
+    saveState();
   }
   const analysisHash = '#explorers/' + encodeURIComponent(analysisId);
   if (location.hash !== analysisHash) {
@@ -5349,6 +5459,7 @@ function showPage(pageId, persistPage = true) {
       try { history.replaceState(null, '', pageHash); }
       catch (e) { try { location.hash = pageHash; } catch (ignored) {} }
     }
+    saveState();
   }
   // Every collapsible card collapses each time its section is visited, so you always land on a clean,
   // scannable list of titles. Only cards with an actual <h3 onclick="toggleCard(this)"> header are
@@ -5803,6 +5914,405 @@ const BACKUP_REMINDER_DISMISSED_KEY = 'retirementPlannerBackupReminderDismissed_
 const BACKUP_REMINDER_STALE_DAYS = 30;
 const BACKUP_REMINDER_SNOOZE_DAYS = 7;
 
+// ---------- Secure cross-device synchronization (Supabase) ----------
+// These are public browser-application credentials, not secrets. Access to the retirement_plans table
+// is enforced by Supabase Auth plus Row Level Security (user_id must equal auth.uid()). Never add a
+// service-role/secret key here: those bypass RLS and belong only on a protected server.
+const PLANNER_SUPABASE_URL = 'https://awtpxvevjclnlljbndho.supabase.co';
+const PLANNER_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_SrBby33KWYdGRwo_wKeStg_mfmR_4UB';
+const PLANNER_SITE_URL = 'https://michealsizemore1.github.io/2026-ChatGPT-Retirement-Planner/';
+const CLOUD_LAST_SYNC_KEY = 'retirementPlannerCloudLastSync_v1';
+const CLOUD_DIRTY_KEY = 'retirementPlannerCloudDirty_v1';
+const CLOUD_RESET_PENDING_KEY = 'retirementPlannerCloudResetPending_v1';
+const CLOUD_EMAIL_KEY = 'retirementPlannerCloudEmail_v1';
+const CLOUD_SYNC_DELAY_MS = 1400;
+
+let plannerSupabaseClient = null;
+let plannerCloudUser = null;
+let plannerCloudReady = false;
+let plannerCloudTrackChanges = false;
+let plannerCloudApplying = false;
+let plannerCloudSyncing = false;
+let plannerCloudSyncPending = false;
+let plannerCloudSyncTimer = null;
+let plannerCloudHandlingUserId = null;
+
+function cloudStorageGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function cloudStorageSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
+}
+function cloudStorageRemove(key) {
+  try { localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
+}
+function formatCloudTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+}
+function setCloudStatus(state, shortText, detail) {
+  const badge = els('cloudSyncBadge');
+  if (badge) badge.dataset.state = state;
+  const badgeText = els('cloudSyncBadgeText');
+  if (badgeText) badgeText.textContent = shortText;
+  const status = els('cloudSettingsStatus');
+  if (status) status.textContent = shortText;
+  const statusDetail = els('cloudStatusDetail');
+  if (statusDetail && detail) statusDetail.textContent = detail;
+  const dot = els('cloudSettingsDot');
+  if (dot) {
+    const colors = { saved:'#4ed1a2', syncing:'#7ec8ff', offline:'#f49a8f', error:'#f49a8f', checking:'#f0b44d', unsigned:'#f0b44d', unsaved:'#f0b44d' };
+    dot.style.background = colors[state] || colors.checking;
+  }
+}
+function updateCloudAccountUi() {
+  const email = plannerCloudUser && plannerCloudUser.email ? plannerCloudUser.email : '';
+  const emailEl = els('cloudAccountEmail');
+  if (emailEl) emailEl.textContent = email || 'Not signed in — this device is using its local copy';
+  const signInBtn = els('cloudSignInSettingsBtn');
+  const signOutBtn = els('cloudSignOutBtn');
+  const syncBtn = els('cloudSyncNowBtn');
+  if (signInBtn) signInBtn.style.display = email ? 'none' : '';
+  if (signOutBtn) signOutBtn.style.display = email ? '' : 'none';
+  if (syncBtn) syncBtn.disabled = !email;
+}
+function showCloudAuthMessage(message, isError = false) {
+  const el = els('cloudAuthMessage');
+  if (!el) return;
+  el.textContent = message || '';
+  el.style.display = message ? 'block' : 'none';
+  el.classList.toggle('error', !!isError);
+}
+function showPlannerSignIn() {
+  const overlay = els('cloudAuthOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  const remembered = cloudStorageGet(CLOUD_EMAIL_KEY);
+  const email = els('cloudAuthEmail');
+  if (email && remembered && !email.value) email.value = remembered;
+  setTimeout(() => { const target = email && !email.value ? email : els('cloudAuthPassword'); if (target) target.focus(); }, 50);
+}
+function hidePlannerSignIn() {
+  const overlay = els('cloudAuthOverlay');
+  if (overlay) overlay.style.display = 'none';
+  showCloudAuthMessage('');
+}
+function continuePlannerOffline() {
+  hidePlannerSignIn();
+  plannerCloudTrackChanges = true;
+  setCloudStatus('offline', 'Offline', 'Changes are protected on this device and will synchronize after you sign in with an internet connection.');
+  updateCloudAccountUi();
+}
+function getPlannerSupabaseClient() {
+  if (plannerSupabaseClient) return plannerSupabaseClient;
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    throw new Error('The secure synchronization library could not load. Check the internet connection and try again.');
+  }
+  plannerSupabaseClient = window.supabase.createClient(PLANNER_SUPABASE_URL, PLANNER_SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
+  });
+  return plannerSupabaseClient;
+}
+async function signInToPlanner(event) {
+  if (event) event.preventDefault();
+  const button = els('cloudSignInBtn');
+  const email = (els('cloudAuthEmail') && els('cloudAuthEmail').value || '').trim();
+  const password = els('cloudAuthPassword') ? els('cloudAuthPassword').value : '';
+  if (!email || !password) { showCloudAuthMessage('Enter both your email and password.', true); return; }
+  if (button) { button.disabled = true; button.textContent = 'Signing in…'; }
+  showCloudAuthMessage('Securely signing in…');
+  try {
+    const client = getPlannerSupabaseClient();
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    cloudStorageSet(CLOUD_EMAIL_KEY, email);
+    if (els('cloudAuthPassword')) els('cloudAuthPassword').value = '';
+    await handlePlannerCloudSession(data.session);
+  } catch (e) {
+    showCloudAuthMessage(e && e.message ? e.message : 'Sign-in failed. Check the email and password.', true);
+    setCloudStatus('error', 'Sign-in needed', 'The local copy is still safe on this device. Sign in to resume synchronization.');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Sign in & load plan'; }
+  }
+}
+async function sendPlannerPasswordReset() {
+  const email = (els('cloudAuthEmail') && els('cloudAuthEmail').value || '').trim();
+  if (!email) { showCloudAuthMessage('Enter your email address first, then select Forgot password.', true); return; }
+  try {
+    const client = getPlannerSupabaseClient();
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: PLANNER_SITE_URL });
+    if (error) throw error;
+    showCloudAuthMessage('Password-reset instructions were sent if that email belongs to the planner account.');
+  } catch (e) {
+    showCloudAuthMessage(e && e.message ? e.message : 'The password-reset email could not be sent.', true);
+  }
+}
+async function completePlannerPasswordRecovery() {
+  const newPassword = prompt('Enter a new planner password (at least 8 characters).');
+  if (!newPassword) {
+    showPlannerSignIn();
+    showCloudAuthMessage('The password was not changed. You can reopen the reset link when ready.', true);
+    return;
+  }
+  if (newPassword.length < 8) {
+    alert('For safety, use a password with at least 8 characters.');
+    return completePlannerPasswordRecovery();
+  }
+  try {
+    const client = getPlannerSupabaseClient();
+    const { error } = await client.auth.updateUser({ password:newPassword });
+    if (error) throw error;
+    alert('Your planner password was updated. The synchronized plan will now load.');
+    const { data } = await client.auth.getSession();
+    await handlePlannerCloudSession(data.session);
+  } catch (e) {
+    showPlannerSignIn();
+    showCloudAuthMessage(e && e.message ? e.message : 'The password could not be updated.', true);
+  }
+}
+function markPlannerCloudDirty() {
+  if (!plannerCloudTrackChanges || plannerCloudApplying) return;
+  cloudStorageSet(CLOUD_DIRTY_KEY, new Date().toISOString());
+  setCloudStatus(navigator.onLine === false ? 'offline' : 'unsaved', navigator.onLine === false ? 'Offline' : 'Saving…',
+    navigator.onLine === false ? 'The latest changes are safe on this device and will synchronize when online.' : 'A recent change is waiting to be synchronized.');
+}
+function schedulePlannerCloudSync() {
+  if (!plannerCloudTrackChanges || plannerCloudApplying || plannerCloudSyncing) return;
+  markPlannerCloudDirty();
+  clearTimeout(plannerCloudSyncTimer);
+  if (!plannerCloudUser || navigator.onLine === false) return;
+  plannerCloudSyncTimer = setTimeout(() => syncCloudNow(false), CLOUD_SYNC_DELAY_MS);
+}
+function timestampAfter(a, b, toleranceMs = 1000) {
+  const ta = a ? new Date(a).getTime() : 0;
+  const tb = b ? new Date(b).getTime() : 0;
+  return isFinite(ta) && isFinite(tb) && ta > tb + toleranceMs;
+}
+async function applyPlannerCloudState(state, remoteUpdatedAt) {
+  if (!state || typeof state !== 'object') return;
+  plannerCloudApplying = true;
+  try {
+    applyState(state);
+    if (typeof state.sharedNotesText === 'string') {
+      sharedNotesText = state.sharedNotesText;
+      cloudStorageSet(SHARED_NOTES_KEY, sharedNotesText);
+      renderSharedNotesTextareas();
+    }
+    if (state.checkpointBaseline !== undefined) { checkpointBaseline = state.checkpointBaseline; persistCheckpointBaseline(); }
+    if (Array.isArray(state.checkpointHistory)) { checkpointHistory = state.checkpointHistory; persistCheckpointHistory(); }
+    renderExpenseRows(); renderBrokeragePieRows(); renderPieContributionRows(); renderDebtRows();
+    renderFutureExpenseRows(); renderWindfallRows(); renderInsuranceRows();
+    const route = state.activePage && PAGE_LABELS[state.activePage] ? state.activePage : readInitialPage();
+    if (route) activatePageShell(route);
+    if (route === 'explorers' && isKnownExplorerAnalysis(state.selectedExplorerAnalysis)) {
+      activateExplorerAnalysis(state.selectedExplorerAnalysis, false, false);
+    }
+    render();
+    saveState();
+    collapsePlannerCards();
+  } finally {
+    plannerCloudApplying = false;
+  }
+  if (remoteUpdatedAt) cloudStorageSet(CLOUD_LAST_SYNC_KEY, remoteUpdatedAt);
+  cloudStorageRemove(CLOUD_DIRTY_KEY);
+}
+async function pushCurrentPlanToCloud() {
+  const client = getPlannerSupabaseClient();
+  if (!plannerCloudUser) throw new Error('Sign in before synchronizing.');
+  const state = saveState();
+  const updatedAt = new Date().toISOString();
+  const { data, error } = await client.from('retirement_plans').upsert({
+    user_id: plannerCloudUser.id,
+    plan_data: state,
+    updated_at: updatedAt
+  }, { onConflict:'user_id' }).select('updated_at').single();
+  if (error) throw error;
+  const confirmedAt = data && data.updated_at ? data.updated_at : updatedAt;
+  cloudStorageSet(CLOUD_LAST_SYNC_KEY, confirmedAt);
+  cloudStorageRemove(CLOUD_DIRTY_KEY);
+  return confirmedAt;
+}
+async function handlePlannerCloudSession(session) {
+  if (!session || !session.user) {
+    plannerCloudUser = null;
+    plannerCloudReady = true;
+    plannerCloudTrackChanges = false;
+    updateCloudAccountUi();
+    setCloudStatus('unsigned', 'Sign in', 'Sign in to securely load and synchronize your plan. The local copy remains on this device.');
+    showPlannerSignIn();
+    return;
+  }
+  if (plannerCloudHandlingUserId === session.user.id) return;
+  plannerCloudHandlingUserId = session.user.id;
+  plannerCloudUser = session.user;
+  cloudStorageSet(CLOUD_EMAIL_KEY, session.user.email || '');
+  updateCloudAccountUi();
+  setCloudStatus('syncing', 'Loading…', 'Checking Supabase for the latest saved plan.');
+  try {
+    const client = getPlannerSupabaseClient();
+    const { data, error } = await client.from('retirement_plans')
+      .select('plan_data,updated_at').eq('user_id', session.user.id).maybeSingle();
+    if (error) throw error;
+    const resetPending = cloudStorageGet(CLOUD_RESET_PENDING_KEY) === '1';
+    const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY);
+    const lastSyncAt = cloudStorageGet(CLOUD_LAST_SYNC_KEY);
+    if (resetPending) {
+      cloudStorageRemove(CLOUD_RESET_PENDING_KEY);
+      plannerCloudTrackChanges = true;
+      const savedAt = await pushCurrentPlanToCloud();
+      setCloudStatus('saved', 'Saved', `The reset plan was synchronized ${formatCloudTime(savedAt)}.`);
+    } else if (!data) {
+      plannerCloudTrackChanges = true;
+      const savedAt = await pushCurrentPlanToCloud();
+      setCloudStatus('saved', 'Saved', `This device created the first secure cloud copy ${formatCloudTime(savedAt)}.`);
+    } else {
+      const cloudChangedSinceLastSync = !!lastSyncAt && timestampAfter(data.updated_at, lastSyncAt);
+      if (localDirtyAt && cloudChangedSinceLastSync) {
+        const useThisDevice = confirm('This device and another device both have unsynchronized planner changes. Select OK to keep this device’s version, or Cancel to load the newer cloud version.');
+        if (useThisDevice) {
+          plannerCloudTrackChanges = true;
+          const savedAt = await pushCurrentPlanToCloud();
+          setCloudStatus('saved', 'Saved', `This device’s version was synchronized ${formatCloudTime(savedAt)}.`);
+        } else {
+          await applyPlannerCloudState(data.plan_data, data.updated_at);
+          setCloudStatus('saved', 'Saved', `The latest cloud version from ${formatCloudTime(data.updated_at)} is loaded.`);
+        }
+      } else if (localDirtyAt && !lastSyncAt) {
+        // A device that was deliberately used offline before its first successful sync keeps its local
+        // work rather than silently discarding it just because a cloud row already exists.
+        const useThisDevice = confirm('This device has offline planner changes and a cloud plan also exists. Select OK to keep this device’s version, or Cancel to load the cloud version.');
+        if (useThisDevice) {
+          plannerCloudTrackChanges = true;
+          const savedAt = await pushCurrentPlanToCloud();
+          setCloudStatus('saved', 'Saved', `This device’s offline work was synchronized ${formatCloudTime(savedAt)}.`);
+        } else {
+          await applyPlannerCloudState(data.plan_data, data.updated_at);
+          setCloudStatus('saved', 'Saved', `The cloud version from ${formatCloudTime(data.updated_at)} is loaded.`);
+        }
+      } else {
+        await applyPlannerCloudState(data.plan_data, data.updated_at);
+        setCloudStatus('saved', 'Saved', `The latest cloud version from ${formatCloudTime(data.updated_at)} is loaded.`);
+      }
+    }
+    plannerCloudReady = true;
+    plannerCloudTrackChanges = true;
+    hidePlannerSignIn();
+    updateCloudAccountUi();
+  } catch (e) {
+    plannerCloudReady = true;
+    plannerCloudTrackChanges = true;
+    hidePlannerSignIn();
+    setCloudStatus(navigator.onLine === false ? 'offline' : 'error', navigator.onLine === false ? 'Offline' : 'Sync error',
+      `The local copy is still available. ${e && e.message ? e.message : 'Supabase could not be reached.'}`);
+    updateCloudAccountUi();
+  } finally {
+    plannerCloudHandlingUserId = null;
+  }
+}
+async function syncCloudNow(userInitiated = false) {
+  clearTimeout(plannerCloudSyncTimer);
+  if (!plannerCloudUser) {
+    if (userInitiated) showPlannerSignIn();
+    return false;
+  }
+  if (navigator.onLine === false) {
+    markPlannerCloudDirty();
+    setCloudStatus('offline', 'Offline', 'The latest changes are safe on this device and will synchronize when internet access returns.');
+    return false;
+  }
+  if (plannerCloudSyncing) {
+    plannerCloudSyncPending = true;
+    return false;
+  }
+  plannerCloudSyncing = true;
+  if (userInitiated) cloudStorageSet(CLOUD_DIRTY_KEY, new Date().toISOString());
+  setCloudStatus('syncing', 'Syncing…', 'Comparing this device with the secure cloud copy.');
+  try {
+    const client = getPlannerSupabaseClient();
+    const { data:remote, error:readError } = await client.from('retirement_plans')
+      .select('plan_data,updated_at').eq('user_id', plannerCloudUser.id).maybeSingle();
+    if (readError) throw readError;
+    const lastSyncAt = cloudStorageGet(CLOUD_LAST_SYNC_KEY);
+    const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY);
+    const cloudChangedSinceLastSync = remote && lastSyncAt && timestampAfter(remote.updated_at, lastSyncAt);
+    if (localDirtyAt && cloudChangedSinceLastSync) {
+      if (!userInitiated) {
+        setCloudStatus('error', 'Review sync', 'Another device changed the cloud plan while this device also had changes. Select “Synchronize now” to choose which version to keep.');
+        return false;
+      }
+      const useThisDevice = confirm('Another device has changed the cloud plan. Select OK to replace it with this device’s current plan, or Cancel to load the cloud version.');
+      if (!useThisDevice) {
+        await applyPlannerCloudState(remote.plan_data, remote.updated_at);
+        setCloudStatus('saved', 'Saved', `The cloud version from ${formatCloudTime(remote.updated_at)} is loaded.`);
+        return true;
+      }
+    }
+    const savedAt = await pushCurrentPlanToCloud();
+    setCloudStatus('saved', 'Saved', `All planner changes were synchronized ${formatCloudTime(savedAt)}.`);
+    return true;
+  } catch (e) {
+    markPlannerCloudDirty();
+    setCloudStatus(navigator.onLine === false ? 'offline' : 'error', navigator.onLine === false ? 'Offline' : 'Sync error',
+      `The local copy is safe. ${e && e.message ? e.message : 'Supabase could not be reached.'}`);
+    return false;
+  } finally {
+    plannerCloudSyncing = false;
+    if (plannerCloudSyncPending) {
+      plannerCloudSyncPending = false;
+      schedulePlannerCloudSync();
+    }
+  }
+}
+async function signOutOfPlanner() {
+  if (!plannerSupabaseClient) { showPlannerSignIn(); return; }
+  if (plannerCloudUser && cloudStorageGet(CLOUD_DIRTY_KEY)) await syncCloudNow(true);
+  await plannerSupabaseClient.auth.signOut();
+  plannerCloudUser = null;
+  plannerCloudTrackChanges = false;
+  updateCloudAccountUi();
+  setCloudStatus('unsigned', 'Sign in', 'Signed out. The cached local copy remains on this device.');
+  showPlannerSignIn();
+}
+async function initPlannerCloudSync() {
+  updateCloudAccountUi();
+  const remembered = cloudStorageGet(CLOUD_EMAIL_KEY);
+  if (remembered && els('cloudAuthEmail')) els('cloudAuthEmail').value = remembered;
+  try {
+    const client = getPlannerSupabaseClient();
+    client.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setTimeout(() => completePlannerPasswordRecovery(), 0);
+      } else if (event === 'SIGNED_OUT') {
+        plannerCloudUser = null;
+        plannerCloudTrackChanges = false;
+        updateCloudAccountUi();
+        setCloudStatus('unsigned', 'Sign in', 'Signed out. Sign in to resume synchronization.');
+        showPlannerSignIn();
+      } else if (event === 'SIGNED_IN' && session && (!plannerCloudUser || plannerCloudUser.id !== session.user.id)) {
+        setTimeout(() => handlePlannerCloudSession(session), 0);
+      }
+    });
+    const { data, error } = await client.auth.getSession();
+    if (error) throw error;
+    await handlePlannerCloudSession(data.session);
+  } catch (e) {
+    plannerCloudReady = true;
+    plannerCloudTrackChanges = true;
+    showCloudAuthMessage(e && e.message ? e.message : 'Secure synchronization could not be initialized.', true);
+    setCloudStatus(navigator.onLine === false ? 'offline' : 'error', navigator.onLine === false ? 'Offline' : 'Connection error',
+      'The local copy remains available. Continue offline or retry after checking the connection.');
+    updateCloudAccountUi();
+  }
+}
+window.addEventListener('online', () => {
+  if (plannerCloudUser) syncCloudNow(false);
+  else setCloudStatus('unsigned', 'Sign in', 'Internet access is available. Sign in to synchronize this device.');
+});
+window.addEventListener('offline', () => {
+  markPlannerCloudDirty();
+  setCloudStatus('offline', 'Offline', 'The latest changes are safe on this device and will synchronize when internet access returns.');
+});
+
 // ---------- Shared Notes (one card per page, all editing the SAME text) ----------
 // A single note that follows you across every page — type on Taxes, switch to Income, it's already
 // there. Every page has its own <textarea class="shared-notes-textarea" ...> in the DOM at once (only
@@ -5831,6 +6341,7 @@ function updateSharedNotes(value) {
   sharedNotesText = value;
   try { localStorage.setItem(SHARED_NOTES_KEY, value); } catch (e) { /* storage unavailable, ignore */ }
   renderSharedNotesTextareas();
+  schedulePlannerCloudSync();
 }
 
 function daysSince(isoString) {
@@ -5851,8 +6362,8 @@ function renderBackupReminder() {
   const textEl = els('backupReminderText');
   if (textEl) {
     textEl.textContent = lastBackup
-      ? `It's been over ${BACKUP_REMINDER_STALE_DAYS} days since your last backup (Settings page) — everything here only lives in this browser until you download one.`
-      : "You haven't downloaded a backup yet — everything you enter only lives in this browser (Settings page has a one-click download).";
+      ? `It's been over ${BACKUP_REMINDER_STALE_DAYS} days since your last independent JSON backup (Settings page). Cloud synchronization is convenient, but a downloaded recovery copy is still worthwhile.`
+      : "You haven't downloaded an independent JSON backup yet. Cloud synchronization is convenient, but the Settings page also provides a one-click recovery copy.";
   }
   banner.style.display = 'flex';
 }
@@ -5896,8 +6407,18 @@ function saveState(includePortableData = false) {
   });
   // Checkpoint history is part of the retirement plan backup. Accounts & Cards and Document Vault use
   // their own storage/export paths and deliberately remain outside this planner state.
-  const state = { fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies, withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode, withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName, allocationExplorerStrategy, selectedExplorerAnalysis, sharedNotesText, checkpointBaseline, checkpointHistory };
+  const activePageEl = document.querySelector('.page.active');
+  const activePage = activePageEl && activePageEl.dataset.page ? activePageEl.dataset.page : 'dashboard';
+  const state = {
+    schemaVersion:2,
+    fields, expenses, brokeragePies, debts, futureExpenses, windfalls, insurancePolicies,
+    withdrawalOrderState, withdrawalModeCustom, withdrawalExcludedKeys, withdrawalProportionMode,
+    withdrawalProportions, excessIncomeDestinationPieName, rothConversionSourceName,
+    allocationExplorerStrategy, selectedExplorerAnalysis, sharedNotesText, checkpointBaseline,
+    checkpointHistory, spendingBasis, jobLossDate, dollarView, activePage
+  };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
+  schedulePlannerCloudSync();
   // Accounts & Cards remains a separate tool and is intentionally excluded from planner backups.
   return state;
 }
@@ -5930,6 +6451,31 @@ function applyState(state) {
   if (typeof state.rothConversionSourceName === 'string') rothConversionSourceName = state.rothConversionSourceName;
   if (typeof state.allocationExplorerStrategy === 'string') allocationExplorerStrategy = state.allocationExplorerStrategy;
   if (isKnownExplorerAnalysis(state.selectedExplorerAnalysis)) selectedExplorerAnalysis = state.selectedExplorerAnalysis;
+  // Portable scenario/display/navigation settings used to live only in separate localStorage keys.
+  // Keeping them in the state object is essential for identical calculations after a JSON restore or
+  // cloud load on another device—especially Job Loss date and spending basis.
+  if (state.spendingBasis === 'liketo' || state.spendingBasis === 'mustspend' || state.spendingBasis === 'jobloss') {
+    spendingBasis = state.spendingBasis;
+    try { localStorage.setItem(SPENDING_BASIS_KEY, spendingBasis); } catch (e) {}
+    document.querySelectorAll('#spendingBasisToggle .dollar-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === spendingBasis));
+  }
+  if (typeof state.jobLossDate === 'string' && state.jobLossDate) {
+    jobLossDate = state.jobLossDate;
+    try { localStorage.setItem(JOB_LOSS_DATE_KEY, jobLossDate); } catch (e) {}
+    const jobLossEl = els('jobLossDate');
+    if (jobLossEl) jobLossEl.value = jobLossDate;
+  }
+  if (state.dollarView === 'real' || state.dollarView === 'nominal') {
+    dollarView = state.dollarView;
+    try { localStorage.setItem(DOLLAR_VIEW_KEY, dollarView); } catch (e) {}
+    document.querySelectorAll('#dollarToggle .dollar-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === dollarView));
+  }
+  if (typeof state.activePage === 'string' && PAGE_LABELS[state.activePage]) {
+    try { localStorage.setItem(ACTIVE_PAGE_KEY, state.activePage); } catch (e) {}
+  }
+  if (isKnownExplorerAnalysis(state.selectedExplorerAnalysis)) {
+    try { localStorage.setItem(EXPLORER_ANALYSIS_KEY, state.selectedExplorerAnalysis); } catch (e) {}
+  }
   // Deliberately NOT syncing state.sharedNotesText here. This function runs on every normal boot (via
   // loadState()), and the copy of sharedNotesText baked into this state blob is only as fresh as the
   // last time saveState() happened to run for some unrelated field — notes themselves persist through
@@ -5968,7 +6514,7 @@ const EXPENSE_CATEGORIES = ['Food & Groceries','Transportation','Healthcare','Ut
 // essential-floor figure Boldin shows alongside it; it's captured for reference/future stress-testing
 // but doesn't itself change the projection. Existing rows default mustSpend = amount (essential utility
 // bills), except the two clearly-discretionary ones, which default to $0.
-let expenses = [{"name":"Intermountain Gas","category":"Utilities","amount":50,"survivorContinues":true},{"name":"Verizon","category":"Utilities","amount":154},{"name":"Idaho Power","category":"Utilities","amount":90},{"name":"Centurylink","category":"Utilities","amount":105},{"name":"YouTube Premium","category":"Subscriptions","amount":27},{"name":"Ring","category":"Subscriptions","amount":10},{"name":"Sinking Funds","category":"Subscriptions","amount":130,"survivorAmount":65,"jobLoss":65},{"name":"Planet Fitness","category":"Personal Care","amount":21,"survivorContinues":false,"jobLoss":0},{"name":"To Cindy","category":"Personal Support","amount":3466,"survivorAmount":3050,"mustSpend":3466,"jobLoss":2050},{"name":"Fun money / Backup ","category":"Entertainment & Travel","amount":420,"survivorContinues":false,"jobLoss":0,"mustSpend":0,"startAge":52,"startDateValue":"2026-06","endAge":55,"endDateValue":"2028-12"}];
+let expenses = [];
 function renderExpenseRows() {
   const container = els('expenseRows');
   container.innerHTML = expenses.map((e,i) => `
@@ -6306,7 +6852,7 @@ function renderSurvivorExpenseChecklist() {
 }
 
 // ---------- Future / one-time planned expenses (dynamic rows) ----------
-let futureExpenses = [{"name":"Vacations & Trips","age":56,"amount":4992,"recurring":true,"endAge":69,"dateValue":"2030-05","survivorContinues":false}];
+let futureExpenses = [];
 function renderFutureExpenseRows() {
   const container = els('futureExpenseRows');
   if (!container) return;
@@ -6466,7 +7012,7 @@ function setWindfallAgeFromDate(i, monthVal) {
 
 // ---------- Insurance policies (dynamic rows, informational — Estate & Insurance page) ----------
 const INSURANCE_TYPES = ['Life','Long-Term Care','Auto','Home/Renters','Umbrella','Disability','Other'];
-let insurancePolicies = [{"name":"State Farm: Car, Renters and Life","type":"Other","premium":127,"coverage":250000},{"name":"Trupanion (Buddy)","type":"Other","premium":81,"coverage":0},{"name":"VGLI","type":"Life","premium":116,"coverage":400000,"survivorContinues":false},{"name":"Military SBP","type":"Other","premium":162,"coverage":0,"survivorContinues":false}];
+let insurancePolicies = [];
 function renderInsuranceRows() {
   const container = els('insuranceRows');
   if (!container) return;
@@ -6493,7 +7039,7 @@ function addInsurancePolicy() { insurancePolicies.push({ name:'New policy', type
 function removeInsurancePolicy(i) { insurancePolicies.splice(i,1); renderInsuranceRows(); render(); }
 
 // ---------- Brokerage pies (dynamic rows, M1 Finance) ----------
-let brokeragePies = [{"name":"Sequence of Returns Risk (T-Bills)","balance":375,"contribution":300,"accountType":"taxable","riskType":"cash","cashRate":3.56,"fee":0},{"name":"All things Bucket","balance":11857,"contribution":716,"accountType":"roth_ira","riskType":"equity","fee":0}];
+let brokeragePies = [];
 function renderBrokeragePieRows() {
   const container = els('brokeragePieRows');
   container.innerHTML = brokeragePies.map((p,i) => `
@@ -6528,7 +7074,7 @@ function addBrokeragePie() { brokeragePies.push({ name:'New pie', balance:1000, 
 function removeBrokeragePie(i) { brokeragePies.splice(i,1); renderBrokeragePieRows(); renderPieContributionRows(); render(); }
 
 // ---------- Excess income savings destination: a single named pie (e.g. a cash-like SGOV pie), not spread across all pies ----------
-let excessIncomeDestinationPieName = 'Sequence of Returns Risk (T-Bills)';
+let excessIncomeDestinationPieName = '';
 function renderExcessIncomeDestinationOptions() {
   const sel = els('excessIncomeDestinationPie');
   if (!sel) return;
@@ -6581,7 +7127,7 @@ function updatePieContribution(i, value) {
 
 // ---------- Withdrawal Strategy: ordered list of every individual account money gets drawn from in retirement ----------
 // Order is a flat array of account keys: 'trad', 'roth', 'hysa', and 'pie_0'..'pie_N-1' (index into brokeragePies).
-let withdrawalOrderState = ["trad","pie_0","pie_1","hysa","roth"];
+let withdrawalOrderState = ["trad","hysa","roth"];
 let withdrawalModeCustom = true;
 // Accounts checked OFF in the Withdrawal Strategy list — kept as a separate array (rather than removing
 // them from withdrawalOrderState) so an excluded account still shows in the list at its usual position,
@@ -6743,7 +7289,7 @@ function renderWithdrawalOrderRows() {
 
 // ---------- Debt (dynamic rows) ----------
 const DEBT_CATEGORIES = ['Credit Card','Auto Loan','Student Loan','Personal Loan','Medical Debt','Other'];
-let debts = [{"name":"Car Payment","category":"Auto Loan","balance":14028,"apr":5.1,"payment":712,"assetValue":0,"assetDepreciation":15,"survivorContinues":false},{"name":"New Car #1","category":"Auto Loan","balance":60000,"apr":5.1,"payment":1135.02,"startAge":62,"termYears":5,"assetValue":60000,"assetDepreciation":15},{"name":"New Car #2","category":"Auto Loan","balance":72000,"apr":5.1,"payment":1362.03,"startAge":77,"termYears":5,"assetValue":72000,"assetDepreciation":15}];
+let debts = [];
 function renderDebtRows() {
   const container = els('debtRows');
   container.innerHTML = debts.map((d,i) => `
@@ -11630,7 +12176,8 @@ window.addEventListener('beforeprint', () => {
 window.addEventListener('afterprint', restoreApiKeyAfterPrint);
 
 function resetAllData() {
-  if (!confirm('This resets the retirement plan, notes, checkpoints, and Coach conversation. Accounts & Cards and Document Vault remain separate. Continue?')) return;
+  if (!confirm('This resets the retirement plan, notes, checkpoints, and Coach conversation on this device and in the synchronized cloud plan. Accounts & Cards and Document Vault remain separate. Continue?')) return;
+  if (plannerCloudUser) cloudStorageSet(CLOUD_RESET_PENDING_KEY, '1');
   try {
     [STORAGE_KEY, ACTIVE_PAGE_KEY, EXPLORER_ANALYSIS_KEY, DOLLAR_VIEW_KEY, SPENDING_BASIS_KEY,
       JOB_LOSS_DATE_KEY, LAST_BACKUP_KEY, BACKUP_REMINDER_DISMISSED_KEY, SHARED_NOTES_KEY,
@@ -12678,6 +13225,11 @@ window.addEventListener('hashchange', () => {
   try { localStorage.setItem(ACTIVE_PAGE_KEY, pageId); } catch (e) { /* storage unavailable, ignore */ }
   if (pageId === 'explorers') activateExplorerAnalysis(parts[1] || readInitialExplorerAnalysis(), true, true);
 });
+
+// Authentication is checked after the local planner has completed its normal boot. The full-screen
+// sign-in layer stays in front until a session is verified (or the user deliberately chooses offline
+// mode), while an authenticated cloud plan can safely replace the cached local state once retrieved.
+initPlannerCloudSync();
 </script>
 </body>
 </html>
