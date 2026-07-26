@@ -821,57 +821,94 @@
     .gr-bar-side{text-align:center;}
   }
 
-  /* ---------- Mountain Ledger visual identity ----------
-     A warm, tactile planning notebook rather than a look borrowed from another retirement app:
-     pine and clay colors, paper-like surfaces, rounded ledger cards, and a quiet mountain ridge
-     in the header. The planner's structure and calculations are unchanged. */
+  /* ---------- Service & Legacy visual identity ----------
+     A dignified military-service and VA-inspired command center: service blue, brass, burgundy,
+     parchment surfaces, ribbon accents, and subtle chevrons. No branch or agency seal is copied,
+     and the planner's structure and calculations are unchanged. */
   :root{
-    --navy:#17352f;
-    --teal:#3f6f60;
-    --teal-light:#e5eee8;
-    --orange:#c96f45;
-    --bg:#f3eee5;
+    --navy:#102a43;
+    --teal:#315e7d;
+    --teal-light:#e5edf3;
+    --orange:#b88932;
+    --bg:#f1eee7;
     --card:#fffdf8;
-    --border:#d8cfc1;
-    --text:#29332e;
-    --muted:#6d746e;
-    --danger:#a94e3d;
-    --good:#3f765f;
-    --warn2:#b87932;
-    --radius:16px;
-    --pine:#17352f;
-    --clay:#c96f45;
-    --sun:#e4ad54;
+    --border:#d6cdbd;
+    --text:#26333d;
+    --muted:#68737b;
+    --danger:#8d3448;
+    --good:#3f735e;
+    --warn2:#a66f25;
+    --radius:14px;
+    --service-blue:#102a43;
+    --service-blue-mid:#244f70;
+    --brass:#c5a052;
+    --burgundy:#7a263a;
+    --parchment:#f5f0e6;
+    --pine:#102a43;
+    --clay:#7a263a;
+    --sun:#c5a052;
     --paper:#fffdf8;
   }
   body{
     background:
-      radial-gradient(circle at 8% 2%,rgba(228,173,84,.15),transparent 29rem),
-      radial-gradient(circle at 92% 16%,rgba(63,111,96,.11),transparent 32rem),
-      linear-gradient(180deg,#f7f2e9 0%,#efe9df 100%);
+      linear-gradient(135deg,rgba(197,160,82,.055) 25%,transparent 25%) 0 0/48px 48px,
+      linear-gradient(315deg,rgba(16,42,67,.035) 25%,transparent 25%) 0 0/48px 48px,
+      linear-gradient(180deg,#f7f4ed 0%,#ece8df 100%);
   }
   .sticky-app-bar,
   header{
-    background:linear-gradient(118deg,#142e2a 0%,#265046 62%,#724c35 135%);
+    background:linear-gradient(118deg,#0b2238 0%,#173e5d 66%,#4a2732 138%);
   }
-  .sticky-app-bar{border-bottom-color:rgba(228,173,84,.34);}
+  .sticky-app-bar{border-bottom-color:rgba(197,160,82,.48);}
   header{
     position:relative;
     overflow:hidden;
-    border-bottom:4px solid var(--sun);
+    border-bottom:5px solid var(--brass);
   }
   header::after{
     content:"";
     position:absolute;
-    right:-3%;
-    bottom:-1px;
-    width:48%;
-    height:72%;
-    background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(228,173,84,.32));
-    clip-path:polygon(0 100%,18% 57%,34% 79%,54% 22%,69% 65%,82% 42%,100% 100%);
+    right:-40px;
+    bottom:-72px;
+    width:430px;
+    height:230px;
+    border:18px double rgba(197,160,82,.24);
+    transform:rotate(-11deg);
+    background:
+      linear-gradient(135deg,transparent 38%,rgba(255,255,255,.07) 38% 46%,transparent 46% 54%,rgba(197,160,82,.18) 54% 62%,transparent 62%);
+    clip-path:polygon(50% 0,100% 24%,88% 76%,50% 100%,12% 76%,0 24%);
     pointer-events:none;
   }
   .header-bar{position:relative;z-index:1;}
+  .service-identity{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    margin-top:12px;
+    padding:6px 11px 6px 8px;
+    border:1px solid rgba(255,255,255,.28);
+    border-radius:999px;
+    background:rgba(7,25,41,.32);
+    color:#f3e6c5;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+  }
+  .service-ribbon{
+    display:inline-grid;
+    grid-template-columns:repeat(3,5px);
+    gap:2px;
+    width:23px;
+    height:17px;
+    padding:2px;
+    border:1px solid rgba(255,255,255,.55);
+    background:#e8dfcc;
+    box-shadow:0 2px 6px rgba(0,0,0,.2);
+  }
+  .service-ribbon i:nth-child(1){background:#8d3448;}
+  .service-ribbon i:nth-child(2){background:#c5a052;}
+  .service-ribbon i:nth-child(3){background:#315e7d;}
   header h1,
   .page-header h2,
   .card h3,
@@ -882,29 +919,41 @@
   .page-header{
     position:relative;
     padding:5px 0 12px 18px;
-    border-left:5px solid var(--clay);
+    border-left:6px solid var(--brass);
+  }
+  .page-header::after{
+    content:"";
+    position:absolute;
+    left:-6px;
+    bottom:3px;
+    width:6px;
+    height:34%;
+    background:var(--burgundy);
   }
   .page-header h2{font-size:30px;color:var(--pine);}
   .card,
   .mini-chart-card{
     border:1px solid rgba(130,111,85,.25);
-    border-radius:18px;
-    background:linear-gradient(145deg,#fffefa 0%,#fbf6ed 100%);
-    box-shadow:0 10px 28px rgba(56,46,35,.075);
+    border-radius:14px;
+    background:
+      linear-gradient(90deg,var(--brass) 0 5px,var(--burgundy) 5px 8px,transparent 8px) top left/100% 4px no-repeat,
+      linear-gradient(145deg,#fffefa 0%,#faf6ee 100%);
+    box-shadow:0 9px 24px rgba(25,42,56,.08);
   }
   .card h3{color:var(--pine);}
-  .card h3::after{color:var(--clay);}
+  .card h3::after{color:var(--burgundy);}
   .stat{
     border-color:rgba(130,111,85,.25);
-    border-top:4px solid var(--clay);
-    border-radius:16px;
+    border-top:4px solid var(--brass);
+    border-bottom:3px solid var(--burgundy);
+    border-radius:13px;
     background:linear-gradient(150deg,#fffefa,#f7f0e5);
-    box-shadow:0 7px 20px rgba(56,46,35,.06);
+    box-shadow:0 7px 20px rgba(25,42,56,.07);
   }
   .sidenav{
-    background:linear-gradient(180deg,#fffdf8 0%,#f3ebdf 100%);
-    border-right:3px solid var(--sun);
-    box-shadow:8px 0 28px rgba(31,43,36,.18);
+    background:linear-gradient(180deg,#fffdf8 0%,#ede8de 100%);
+    border-right:4px solid var(--brass);
+    box-shadow:8px 0 28px rgba(16,42,67,.2);
   }
   .sidenav-header{border-bottom-color:#cfbfaa;}
   .nav-item,
@@ -913,13 +962,13 @@
   .nav-item:hover,
   .nav-subitem:hover{background:#eee5d8;}
   .nav-item.active{
-    background:linear-gradient(135deg,var(--pine),#527767);
-    box-shadow:0 4px 12px rgba(23,53,47,.18);
+    background:linear-gradient(135deg,var(--service-blue),#315e7d);
+    box-shadow:inset 5px 0 0 var(--brass),0 4px 12px rgba(16,42,67,.2);
   }
   .nav-subitem.active{
     background:#e6dccd;
     color:var(--pine);
-    box-shadow:inset 4px 0 0 var(--clay);
+    box-shadow:inset 4px 0 0 var(--burgundy);
   }
   .nav-submenu{border-left-color:#ccb99e;}
   input,
@@ -937,14 +986,14 @@
   input:focus,
   select:focus,
   textarea:focus{
-    outline:3px solid rgba(228,173,84,.27);
-    border-color:var(--clay);
+    outline:3px solid rgba(197,160,82,.28);
+    border-color:var(--brass);
   }
   .add-btn,
   .chat-send-btn{
     border-radius:999px;
-    background:linear-gradient(135deg,var(--pine),#4e7566);
-    box-shadow:0 5px 14px rgba(23,53,47,.16);
+    background:linear-gradient(135deg,var(--service-blue),#315e7d);
+    box-shadow:0 5px 14px rgba(16,42,67,.18);
   }
   .coach-secondary-btn{
     border:1px solid var(--border);
@@ -960,8 +1009,9 @@
   }
   table thead th{background:#e8e0d3;color:var(--pine);}
   .ask-ai-fab{
-    background:linear-gradient(135deg,var(--clay),#a95339);
-    box-shadow:0 9px 24px rgba(93,49,34,.28);
+    background:linear-gradient(135deg,var(--burgundy),#9b4558);
+    border:1px solid rgba(244,218,157,.6);
+    box-shadow:0 9px 24px rgba(72,27,38,.3);
   }
   .floating-ai-panel{
     border-color:#ccbda9;
@@ -972,7 +1022,8 @@
     margin:-14px -16px 12px;
     padding:14px 16px 12px;
     border-radius:21px 21px 0 0;
-    background:linear-gradient(120deg,var(--pine),#3d685a);
+    border-bottom:3px solid var(--brass);
+    background:linear-gradient(120deg,var(--service-blue),#315e7d);
   }
   .floating-ai-header > span,
   .floating-ai-header .floating-ai-close{color:#fff;}
@@ -981,7 +1032,9 @@
     padding:18px;
     border:1px solid #d6c8b5;
     border-radius:16px;
-    background:linear-gradient(145deg,#fffaf1,#f1e8da);
+    background:
+      linear-gradient(90deg,var(--burgundy) 0 5px,var(--brass) 5px 10px,transparent 10px) top left/100% 4px no-repeat,
+      linear-gradient(145deg,#fffaf1,#f1e8da);
   }
   .coach-question-station label{
     display:block;
@@ -1080,6 +1133,10 @@
     <div class="header-titles">
       <h1>Michael &amp; Cynthia's Retirement</h1>
       <p>Tap the menu to jump to a section.</p>
+      <div class="service-identity" aria-label="Service, security, and legacy">
+        <span class="service-ribbon" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Service &bull; Security &bull; Legacy</span>
+      </div>
     </div>
     <div class="header-toggle-group">
       <div class="dollar-toggle" id="dollarToggle">
