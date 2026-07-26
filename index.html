@@ -121,7 +121,7 @@
     position:fixed;
     inset:0;
     z-index:2500;
-    display:flex;
+    display:none;
     align-items:center;
     justify-content:center;
     padding:22px;
@@ -6010,6 +6010,21 @@ function withPlannerAuthTimeout(promise, milliseconds = 8000) {
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
+function readPlannerStoredSession() {
+  try {
+    const raw = plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    const session = saved && saved.currentSession ? saved.currentSession : saved;
+    if (!session || !session.access_token || !session.refresh_token || !session.user) return null;
+    // A still-valid access token can be restored immediately without waiting for Supabase's
+    // cross-tab initialization. Expired sessions continue through the normal refresh path below.
+    const expiresAt = Number(session.expires_at || 0);
+    return expiresAt > Math.floor(Date.now() / 1000) + 30 ? session : null;
+  } catch (e) {
+    return null;
+  }
+}
 function formatCloudTime(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -6392,6 +6407,11 @@ async function initPlannerCloudSync() {
         setTimeout(() => handlePlannerCloudSession(session), 0);
       }
     });
+    const storedSession = readPlannerStoredSession();
+    if (storedSession) {
+      await handlePlannerCloudSession(storedSession);
+      return;
+    }
     let { data, error } = await withPlannerAuthTimeout(client.auth.getSession());
     if (error) throw error;
     // Some mobile browsers finish restoring their durable storage just after the page script starts.
