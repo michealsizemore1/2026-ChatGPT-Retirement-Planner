@@ -821,62 +821,83 @@
     .gr-bar-side{text-align:center;}
   }
 
-  /* ---------- Service & Legacy visual identity ----------
-     A dignified military-service and VA-inspired command center: service blue, brass, burgundy,
-     parchment surfaces, ribbon accents, and subtle chevrons. No branch or agency seal is copied,
-     and the planner's structure and calculations are unchanged. */
+  /* ---------- Freedom & Service visual identity ----------
+     A Fourth of July and military-inspired command center: flag red, bright white, service blue,
+     restrained stars, ribbon stripes, and crisp field-report surfaces. No branch or agency seal is
+     copied, and the planner's structure and calculations are unchanged. */
   :root{
-    --navy:#102a43;
-    --teal:#315e7d;
-    --teal-light:#e5edf3;
-    --orange:#b88932;
-    --bg:#f1eee7;
-    --card:#fffdf8;
-    --border:#d6cdbd;
-    --text:#26333d;
-    --muted:#68737b;
-    --danger:#8d3448;
-    --good:#3f735e;
-    --warn2:#a66f25;
+    --navy:#0a3161;
+    --teal:#315f8c;
+    --teal-light:#e8f0f8;
+    --orange:#c69b2d;
+    --bg:#f2f5f8;
+    --card:#ffffff;
+    --border:#cdd7e2;
+    --text:#1f2d3a;
+    --muted:#627181;
+    --danger:#b31942;
+    --good:#37735b;
+    --warn2:#a87819;
     --radius:14px;
-    --service-blue:#102a43;
-    --service-blue-mid:#244f70;
-    --brass:#c5a052;
-    --burgundy:#7a263a;
-    --parchment:#f5f0e6;
-    --pine:#102a43;
-    --clay:#7a263a;
-    --sun:#c5a052;
-    --paper:#fffdf8;
+    --service-blue:#0a3161;
+    --service-blue-mid:#315f8c;
+    --flag-red:#b31942;
+    --brass:#c69b2d;
+    --burgundy:#b31942;
+    --parchment:#f7f8fa;
+    --pine:#0a3161;
+    --clay:#b31942;
+    --sun:#c69b2d;
+    --paper:#ffffff;
   }
   body{
     background:
-      linear-gradient(135deg,rgba(197,160,82,.055) 25%,transparent 25%) 0 0/48px 48px,
-      linear-gradient(315deg,rgba(16,42,67,.035) 25%,transparent 25%) 0 0/48px 48px,
-      linear-gradient(180deg,#f7f4ed 0%,#ece8df 100%);
+      radial-gradient(circle at 12% 7%,rgba(179,25,66,.065) 0 2px,transparent 2.5px) 0 0/34px 34px,
+      radial-gradient(circle at 88% 15%,rgba(10,49,97,.07) 0 2px,transparent 2.5px) 0 0/38px 38px,
+      linear-gradient(180deg,#f8fafc 0%,#edf2f7 100%);
   }
   .sticky-app-bar,
   header{
-    background:linear-gradient(118deg,#0b2238 0%,#173e5d 66%,#4a2732 138%);
+    background:
+      linear-gradient(118deg,rgba(255,255,255,.035),transparent 55%),
+      linear-gradient(118deg,#061f3d 0%,#0a3161 64%,#173f6c 100%);
   }
-  .sticky-app-bar{border-bottom-color:rgba(197,160,82,.48);}
+  .sticky-app-bar{border-bottom-color:rgba(255,255,255,.32);}
   header{
     position:relative;
     overflow:hidden;
-    border-bottom:5px solid var(--brass);
+    border-bottom:0;
+    padding-bottom:30px;
   }
-  header::after{
+  header::before{
     content:"";
     position:absolute;
-    right:-40px;
-    bottom:-72px;
-    width:430px;
-    height:230px;
-    border:18px double rgba(197,160,82,.24);
-    transform:rotate(-11deg);
-    background:
-      linear-gradient(135deg,transparent 38%,rgba(255,255,255,.07) 38% 46%,transparent 46% 54%,rgba(197,160,82,.18) 54% 62%,transparent 62%);
-    clip-path:polygon(50% 0,100% 24%,88% 76%,50% 100%,12% 76%,0 24%);
+    left:0;
+    right:0;
+    bottom:0;
+    height:13px;
+    background:linear-gradient(180deg,var(--flag-red) 0 38%,#fff 38% 68%,#35669a 68% 100%);
+    box-shadow:0 -1px 0 rgba(255,255,255,.24);
+  }
+  header::after{
+    content:"★  ★  ★";
+    position:absolute;
+    right:4%;
+    bottom:24px;
+    width:260px;
+    height:120px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid rgba(255,255,255,.12);
+    border-radius:50%;
+    transform:rotate(-7deg);
+    background:radial-gradient(circle,rgba(255,255,255,.1),transparent 68%);
+    color:rgba(255,255,255,.17);
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:43px;
+    letter-spacing:15px;
+    text-shadow:0 0 18px rgba(255,255,255,.14);
     pointer-events:none;
   }
   .header-bar{position:relative;z-index:1;}
@@ -886,10 +907,10 @@
     gap:9px;
     margin-top:12px;
     padding:6px 11px 6px 8px;
-    border:1px solid rgba(255,255,255,.28);
+    border:1px solid rgba(255,255,255,.42);
     border-radius:999px;
-    background:rgba(7,25,41,.32);
-    color:#f3e6c5;
+    background:rgba(2,18,35,.36);
+    color:#fff;
     font-size:12px;
     font-weight:800;
     letter-spacing:.09em;
@@ -903,12 +924,12 @@
     height:17px;
     padding:2px;
     border:1px solid rgba(255,255,255,.55);
-    background:#e8dfcc;
+    background:#fff;
     box-shadow:0 2px 6px rgba(0,0,0,.2);
   }
-  .service-ribbon i:nth-child(1){background:#8d3448;}
-  .service-ribbon i:nth-child(2){background:#c5a052;}
-  .service-ribbon i:nth-child(3){background:#315e7d;}
+  .service-ribbon i:nth-child(1){background:#b31942;}
+  .service-ribbon i:nth-child(2){background:#fff;}
+  .service-ribbon i:nth-child(3){background:#0a3161;}
   header h1,
   .page-header h2,
   .card h3,
@@ -919,7 +940,7 @@
   .page-header{
     position:relative;
     padding:5px 0 12px 18px;
-    border-left:6px solid var(--brass);
+    border-left:6px solid var(--service-blue);
   }
   .page-header::after{
     content:"";
@@ -928,31 +949,31 @@
     bottom:3px;
     width:6px;
     height:34%;
-    background:var(--burgundy);
+    background:var(--flag-red);
   }
   .page-header h2{font-size:30px;color:var(--pine);}
   .card,
   .mini-chart-card{
-    border:1px solid rgba(130,111,85,.25);
+    border:1px solid var(--border);
     border-radius:14px;
     background:
-      linear-gradient(90deg,var(--brass) 0 5px,var(--burgundy) 5px 8px,transparent 8px) top left/100% 4px no-repeat,
-      linear-gradient(145deg,#fffefa 0%,#faf6ee 100%);
-    box-shadow:0 9px 24px rgba(25,42,56,.08);
+      linear-gradient(90deg,var(--service-blue) 0 34%,#fff 34% 66%,var(--flag-red) 66% 100%) top left/100% 5px no-repeat,
+      linear-gradient(145deg,#fff 0%,#f8fafc 100%);
+    box-shadow:0 9px 24px rgba(10,49,97,.085);
   }
   .card h3{color:var(--pine);}
   .card h3::after{color:var(--burgundy);}
   .stat{
-    border-color:rgba(130,111,85,.25);
-    border-top:4px solid var(--brass);
-    border-bottom:3px solid var(--burgundy);
+    border-color:var(--border);
+    border-top:4px solid var(--service-blue);
+    border-bottom:3px solid var(--flag-red);
     border-radius:13px;
-    background:linear-gradient(150deg,#fffefa,#f7f0e5);
-    box-shadow:0 7px 20px rgba(25,42,56,.07);
+    background:linear-gradient(150deg,#fff,#f3f6f9);
+    box-shadow:0 7px 20px rgba(10,49,97,.075);
   }
   .sidenav{
-    background:linear-gradient(180deg,#fffdf8 0%,#ede8de 100%);
-    border-right:4px solid var(--brass);
+    background:linear-gradient(180deg,#fff 0%,#edf2f7 100%);
+    border-right:4px solid var(--flag-red);
     box-shadow:8px 0 28px rgba(16,42,67,.2);
   }
   .sidenav-header{border-bottom-color:#cfbfaa;}
@@ -963,12 +984,12 @@
   .nav-subitem:hover{background:#eee5d8;}
   .nav-item.active{
     background:linear-gradient(135deg,var(--service-blue),#315e7d);
-    box-shadow:inset 5px 0 0 var(--brass),0 4px 12px rgba(16,42,67,.2);
+    box-shadow:inset 5px 0 0 var(--flag-red),0 4px 12px rgba(16,42,67,.2);
   }
   .nav-subitem.active{
-    background:#e6dccd;
+    background:#e4edf6;
     color:var(--pine);
-    box-shadow:inset 4px 0 0 var(--burgundy);
+    box-shadow:inset 4px 0 0 var(--flag-red);
   }
   .nav-submenu{border-left-color:#ccb99e;}
   input,
@@ -979,50 +1000,50 @@
   .field input[type="month"],
   .field input[type="text"],
   .field select{
-    border-color:#cfc5b6;
+    border-color:#c8d3df;
     border-radius:11px;
-    background:#fffefa;
+    background:#fff;
   }
   input:focus,
   select:focus,
   textarea:focus{
-    outline:3px solid rgba(197,160,82,.28);
-    border-color:var(--brass);
+    outline:3px solid rgba(49,95,140,.2);
+    border-color:var(--service-blue-mid);
   }
   .add-btn,
   .chat-send-btn{
     border-radius:999px;
-    background:linear-gradient(135deg,var(--service-blue),#315e7d);
+    background:linear-gradient(135deg,var(--service-blue),#356b9d);
     box-shadow:0 5px 14px rgba(16,42,67,.18);
   }
   .coach-secondary-btn{
     border:1px solid var(--border);
-    background:#eee6d9;
+    background:#eef3f8;
     color:var(--pine);
     box-shadow:none;
   }
-  .dollar-toggle-btn.active{background:var(--clay);}
+  .dollar-toggle-btn.active{background:var(--flag-red);}
   .note,
   .shared-notes-card{
-    border-color:#e1c77a;
-    background:linear-gradient(135deg,#fff8d9,#f5edcf);
+    border-color:#b8c9dc;
+    background:linear-gradient(135deg,#f7fbff,#edf4fb);
   }
-  table thead th{background:#e8e0d3;color:var(--pine);}
+  table thead th{background:#e2eaf3;color:var(--pine);}
   .ask-ai-fab{
-    background:linear-gradient(135deg,var(--burgundy),#9b4558);
-    border:1px solid rgba(244,218,157,.6);
+    background:linear-gradient(135deg,var(--flag-red),#8f1734);
+    border:1px solid rgba(255,255,255,.7);
     box-shadow:0 9px 24px rgba(72,27,38,.3);
   }
   .floating-ai-panel{
-    border-color:#ccbda9;
+    border-color:#b6c6d8;
     border-radius:22px;
-    background:linear-gradient(150deg,#fffefa,#f7f0e5);
+    background:linear-gradient(150deg,#fff,#f2f6fa);
   }
   .floating-ai-header{
     margin:-14px -16px 12px;
     padding:14px 16px 12px;
     border-radius:21px 21px 0 0;
-    border-bottom:3px solid var(--brass);
+    border-bottom:4px solid var(--flag-red);
     background:linear-gradient(120deg,var(--service-blue),#315e7d);
   }
   .floating-ai-header > span,
@@ -1030,11 +1051,11 @@
   .floating-ai-header .floating-ai-clear{border-color:rgba(255,255,255,.38);color:#fff;}
   .coach-question-station{
     padding:18px;
-    border:1px solid #d6c8b5;
+    border:1px solid #bdcad9;
     border-radius:16px;
     background:
-      linear-gradient(90deg,var(--burgundy) 0 5px,var(--brass) 5px 10px,transparent 10px) top left/100% 4px no-repeat,
-      linear-gradient(145deg,#fffaf1,#f1e8da);
+      linear-gradient(90deg,var(--service-blue) 0 34%,#fff 34% 66%,var(--flag-red) 66% 100%) top left/100% 5px no-repeat,
+      linear-gradient(145deg,#fff,#edf3f8);
   }
   .coach-question-station label{
     display:block;
@@ -1133,9 +1154,9 @@
     <div class="header-titles">
       <h1>Michael &amp; Cynthia's Retirement</h1>
       <p>Tap the menu to jump to a section.</p>
-      <div class="service-identity" aria-label="Service, security, and legacy">
+      <div class="service-identity" aria-label="Service, freedom, and legacy">
         <span class="service-ribbon" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>Service &bull; Security &bull; Legacy</span>
+        <span>Service &bull; Freedom &bull; Legacy</span>
       </div>
     </div>
     <div class="header-toggle-group">
