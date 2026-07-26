@@ -49,6 +49,47 @@
   header h1{margin:0; font-size:30px; font-weight:600; line-height:1.15;}
   header p{margin:6px 0 0; color:#b9c6ce; font-size:17px;}
 
+  /* Compact navigation strip that remains visible while the rest of the planner scrolls. Keeping
+     only the hamburger and current section here avoids pinning the much taller title/toggle header,
+     which would otherwise consume most of a phone screen. */
+  .sticky-app-bar{
+    position:sticky;
+    top:0;
+    z-index:900;
+    display:flex;
+    align-items:center;
+    gap:13px;
+    min-height:64px;
+    padding:9px 32px;
+    background:var(--navy);
+    color:#fff;
+    border-bottom:1px solid rgba(255,255,255,0.14);
+    box-shadow:0 3px 12px rgba(7,20,31,0.22);
+  }
+  .sticky-section-info{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    line-height:1.15;
+  }
+  .sticky-section-caption{
+    margin-bottom:3px;
+    color:#b9c6ce;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .sticky-app-bar .current-page-label{
+    display:block;
+    max-width:calc(100vw - 125px);
+    color:#fff;
+    font-size:18px;
+    font-weight:700;
+    line-height:1.2;
+    overflow-wrap:anywhere;
+  }
+
   .header-bar{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;}
   .header-titles{flex:1 1 220px; min-width:220px;}
   .dollar-toggle{display:flex; border:1px solid rgba(255,255,255,0.3); border-radius:20px; overflow:hidden; flex-shrink:0; margin-top:2px;}
@@ -83,16 +124,6 @@
     line-height:1;
   }
   .hamburger-btn:hover{background:rgba(255,255,255,0.22);}
-  .current-page-label{
-    display:inline-block;
-    margin-top:4px;
-    font-size:16.5px;
-    color:#cfe6e0;
-    background:rgba(31,122,108,0.35);
-    padding:3px 12px;
-    border-radius:12px;
-  }
-
   .shell{
     padding:20px;
     max-width:1100px;
@@ -560,6 +591,9 @@
   @media (max-width:480px){
     .ask-ai-fab{padding:12px 16px; font-size:16.5px;}
     .floating-ai-panel{right:10px; left:10px; width:auto; bottom:74px;}
+    .sticky-app-bar{min-height:60px; padding:8px 16px;}
+    .sticky-app-bar .hamburger-btn{width:44px; height:44px;}
+    .sticky-app-bar .current-page-label{font-size:17px; max-width:calc(100vw - 96px);}
     header{padding:16px 16px;}
     header h1{font-size:20px;}
     header p{font-size:14px;}
@@ -724,7 +758,7 @@
      completely unaffected, since @media print never matches outside of an actual print/print-preview. */
   @media print {
     body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    header, .sidenav, .nav-overlay, .ask-ai-fab, .floating-ai-panel,
+    header, .sticky-app-bar, .sidenav, .nav-overlay, .ask-ai-fab, .floating-ai-panel,
     #backupReminderBanner, .info-banner-close,
     .chart-range-nav, .range-readout,
     .remove-btn, .add-btn, .withdraw-order-arrows,
@@ -761,12 +795,19 @@
 </head>
 <body>
 
+<div class="sticky-app-bar">
+  <button class="hamburger-btn" onclick="toggleMenu()" aria-label="Open menu">☰</button>
+  <div class="sticky-section-info">
+    <span class="sticky-section-caption">Current section</span>
+    <span class="current-page-label" id="currentPageLabel">Overview</span>
+  </div>
+</div>
+
 <header>
   <div class="header-bar">
-    <button class="hamburger-btn" onclick="toggleMenu()" aria-label="Open menu">☰</button>
     <div class="header-titles">
       <h1>Michael &amp; Cynthia's Retirement</h1>
-      <p>Tap the menu to jump to a section. <span class="current-page-label" id="currentPageLabel">Overview</span></p>
+      <p>Tap the menu to jump to a section.</p>
     </div>
     <div class="header-toggle-group">
       <div class="dollar-toggle" id="dollarToggle">
