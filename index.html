@@ -5996,6 +5996,20 @@ const plannerAuthStorage = {
     plannerAuthCookieRemove(key);
   }
 };
+function plannerAuthProcessLock(name, acquireTimeout, fn) {
+  // Supabase's browser-wide Web Lock can remain orphaned when a tab is refreshed, suspended, or
+  // closed. That leaves getSession() waiting forever on every other planner tab. The planner's
+  // operations are already serialized within each page, so run the supplied auth operation without
+  // the fragile cross-tab Navigator Lock.
+  return fn();
+}
+function withPlannerAuthTimeout(promise, milliseconds = 8000) {
+  let timer;
+  const timeout = new Promise((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('The saved sign-in check timed out. Please sign in again.')), milliseconds);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 function formatCloudTime(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -6076,7 +6090,8 @@ function getPlannerSupabaseClient() {
       storageKey:PLANNER_AUTH_STORAGE_KEY,
       persistSession:true,
       autoRefreshToken:true,
-      detectSessionInUrl:true
+      detectSessionInUrl:true,
+      lock:plannerAuthProcessLock
     }
   });
   return plannerSupabaseClient;
@@ -6377,13 +6392,13 @@ async function initPlannerCloudSync() {
         setTimeout(() => handlePlannerCloudSession(session), 0);
       }
     });
-    let { data, error } = await client.auth.getSession();
+    let { data, error } = await withPlannerAuthTimeout(client.auth.getSession());
     if (error) throw error;
     // Some mobile browsers finish restoring their durable storage just after the page script starts.
     // If a saved Supabase session exists, allow one short retry before deciding sign-in is required.
     if (!data.session && plannerAuthStorage.getItem(PLANNER_AUTH_STORAGE_KEY)) {
       await new Promise(resolve => setTimeout(resolve, 250));
-      const retry = await client.auth.getSession();
+      const retry = await withPlannerAuthTimeout(client.auth.getSession());
       if (retry.error) throw retry.error;
       data = retry.data;
     }
