@@ -1285,6 +1285,11 @@
         <div id="survivorshipSummaryBody"></div>
       </div>
 
+      <div class="card">
+        <h3 onclick="toggleCard(this)">Survivor Tax Summary<span class="sub-label">First full survivor year — filing status, taxable income, taxes, IRMAA and after-tax income</span></h3>
+        <div id="survivorTaxSummaryBody"></div>
+      </div>
+
       <div class="mini-chart-card chart-horizontal"><div class="mini-label" style="margin-bottom:8px;">Income to spouse, at the assumed age</div><canvas id="chart_survivorship_income"></canvas></div>
       <div class="mini-chart-card chart-horizontal"><div class="mini-label" style="margin-bottom:8px;">Spouse's expenses, at the assumed age</div><canvas id="chart_survivorship_expenses"></canvas></div>
       <div class="mini-chart-card"><div class="mini-label" style="margin-bottom:8px;">Income vs. expenses by year, if this happens</div><canvas id="chart_survivorship_yearly"></canvas><div class="chart-range-nav" data-chart="survivorship_yearly"><button class="range-nav-btn range-prev" onclick="chartRangeNav('survivorship_yearly','prev')">« <span class="range-nav-label">Age</span></button><button class="range-nav-btn lifetime active" onclick="chartRangeNav('survivorship_yearly','lifetime')">Lifetime</button><button class="range-nav-btn range-next" onclick="chartRangeNav('survivorship_yearly','next')"><span class="range-nav-label">Age</span> »</button></div><div class="range-readout" data-chart="survivorship_yearly"></div></div>
@@ -2287,8 +2292,9 @@
 
       <div class="card print-sensitive">
         <h3 onclick="toggleCard(this)">Coach AI Chat<span class="sub-label">Optional — only used if you add a key</span></h3>
-        <div class="field"><label>Anthropic API key</label><input type="password" id="anthropicApiKey" placeholder="sk-ant-..." autocomplete="off"></div>
-        <p style="font-size:16.5px;color:var(--muted);margin:0;line-height:1.55;">This file has no backend — adding a key here lets the Ask AI panel (and the Coach page) call the Anthropic API directly from your browser. For safety, the key is kept only in the currently open page: it is excluded from automatic saves, JSON backups, and printing, and must be entered again after a refresh. Each question sends a full snapshot of your plan to Anthropic's servers. The conversation itself is saved locally; use "New chat" to clear it. Leave the key blank to keep the AI fully offline.</p>
+        <div class="field"><label>Anthropic API key</label><input type="password" id="anthropicApiKey" placeholder="sk-ant-..." autocomplete="off" oninput="saveAnthropicApiKeyLocal()"></div>
+        <button type="button" class="add-btn" style="margin:0 0 10px;background:#fdf3f1;color:var(--danger);" onclick="clearAnthropicApiKeyLocal()">Remove saved API key from this device</button>
+        <p style="font-size:16.5px;color:var(--muted);margin:0;line-height:1.55;">This file has no backend — adding a key here lets the Ask AI panel (and the Coach page) call the Anthropic API directly from your browser. The key is saved only in this device's browser so it survives a refresh. It is excluded from Supabase synchronization, JSON backups, GitHub source, and printing; enter it separately on each device. Each question sends a full snapshot of your plan to Anthropic's servers. The conversation itself is saved locally; use "New chat" to clear it. Leave the key blank to keep the AI fully offline.</p>
       </div>
     </div>
 
@@ -5902,6 +5908,27 @@ function renderLtcVaAidReadout() {
 
 // ---------- Persistence (localStorage) so values survive a page refresh ----------
 const STORAGE_KEY = 'retirementPlannerState_v1';
+const ANTHROPIC_API_KEY_STORAGE_KEY = 'retirementPlannerAnthropicApiKey_v1';
+
+function saveAnthropicApiKeyLocal() {
+  const input = els('anthropicApiKey');
+  if (!input) return;
+  const key = (input.value || '').trim();
+  try {
+    if (key) localStorage.setItem(ANTHROPIC_API_KEY_STORAGE_KEY, key);
+    else localStorage.removeItem(ANTHROPIC_API_KEY_STORAGE_KEY);
+  } catch (e) { /* browser storage unavailable */ }
+}
+function restoreAnthropicApiKeyLocal() {
+  const input = els('anthropicApiKey');
+  if (!input) return;
+  try { input.value = localStorage.getItem(ANTHROPIC_API_KEY_STORAGE_KEY) || ''; } catch (e) { input.value = ''; }
+}
+function clearAnthropicApiKeyLocal() {
+  try { localStorage.removeItem(ANTHROPIC_API_KEY_STORAGE_KEY); } catch (e) { /* ignore */ }
+  const input = els('anthropicApiKey');
+  if (input) input.value = '';
+}
 const ACTIVE_PAGE_KEY = 'retirementPlannerActivePage_v1';
 let allocationExplorerStrategy = 'moderate';
 // Backup reminder: since this tool is a single offline HTML file with no server, everything you enter
@@ -6944,6 +6971,45 @@ function renderSurvivorshipSummary(inputs, rows) {
     <div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--muted);font-size:16.5px;"><span>Investment drawdown (covers the rest of spending)</span><span>${fmtMoney(drawdownMonthly)}/mo</span></div>
     <div class="total-row"><span>Total covering spouse's spending</span><span>${fmtMoney(guaranteedMonthly + drawdownMonthly)}/mo</span></div>
     <p style="font-size:16px;color:var(--muted);margin:8px 0 0;line-height:1.5;">This updates the moment you check a box above. To see how the withdrawals affect the confidence score and portfolio longevity, visit the <b>Explorers</b> page — the "You predecease your spouse..." row there reflects these same settings.</p>
+  `;
+}
+
+function renderSurvivorTaxSummary(inputs) {
+  const body = els('survivorTaxSummaryBody');
+  if (!body) return;
+  if (!inputs.survivorshipDeathAge || inputs.survivorshipDeathAge <= 0) {
+    body.innerHTML = '<p style="font-size:16.5px;color:var(--muted);margin:0;">Enter an assumed death age above to calculate the survivor tax summary.</p>';
+    return;
+  }
+  const scenarioInputs = { ...inputs, survivorshipEnabled:true };
+  const scenario = projectRun(scenarioInputs, buildContext(scenarioInputs), false);
+  const targetAge = inputs.survivorshipDeathAge + 1;
+  const row = scenario.rows.find(r => r.age >= targetAge);
+  if (!row) {
+    body.innerHTML = '<p style="font-size:16.5px;color:var(--muted);margin:0;">The selected death age is at or beyond the projection horizon, so there is no full survivor tax year to display.</p>';
+    return;
+  }
+  const federal = Math.max(0, row.federalTaxAnnual || 0);
+  const state = Math.max(0, row.stateTaxAnnual || 0);
+  const fica = Math.max(0, row.ficaTaxAnnual || 0);
+  const grossIncome = Math.max(0, row.income || 0) + Math.max(0, row.guaranteedIncome || 0) + Math.max(0, row.grossWithdrawal || 0);
+  const afterTaxIncome = Math.max(0, grossIncome - federal - state - fica);
+  const filingLabel = row.taxFilingStatus === 'single'
+    ? 'Single'
+    : (inputs.survivorQualifyingSpouseTwoYears ? 'Qualifying Surviving Spouse / joint-rate assumptions' : 'Married Filing Jointly');
+  const display = value => fmtMoney(dv(value || 0, row.age, inputs));
+  const spouseAge = row.spouseAge != null ? row.spouseAge : row.age - (inputs.currentAge - inputs.spouseCurrentAge);
+  body.innerHTML = `
+    <p style="font-size:16.5px;color:var(--muted);margin:0 0 10px;line-height:1.55;">Estimated first full survivor tax year: your modeled age <b>${row.age}</b>, spouse age <b>${spouseAge}</b>. Amounts follow the Today's $ / Future $ selection in the header.</p>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--muted);font-size:16.5px;"><span>Filing status</span><b style="color:var(--text);text-align:right;">${filingLabel}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--muted);font-size:16.5px;"><span>Estimated MAGI</span><b style="color:var(--text);">${display(row.magiEstimateAnnual)}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--muted);font-size:16.5px;"><span>Standard deduction</span><b style="color:var(--text);">${display(row.standardDeductionAnnual)}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--muted);font-size:16.5px;"><span>Estimated taxable income</span><b style="color:var(--text);">${display(row.taxableIncomeEstimateAnnual)}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--muted);font-size:16.5px;"><span>Federal income tax</span><b style="color:var(--text);">${display(federal)}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--muted);font-size:16.5px;"><span>Idaho income tax</span><b style="color:var(--text);">${display(state)}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--muted);font-size:16.5px;"><span>IRMAA surcharge</span><b style="color:var(--text);">${fmtMoney(dv(row.irmaaSurchargeMonthly || 0, row.age, inputs))}/mo per Medicare enrollee</b></div>
+    <div class="total-row"><span>Estimated income after federal/state tax</span><span>${display(afterTaxIncome)}/yr</span></div>
+    <p style="font-size:15.5px;color:var(--muted);margin:9px 0 0;line-height:1.5;">This is a planning estimate from the survivor scenario, not a tax return. DIC and DIC Aid &amp; Attendance remain tax-free; taxable SBP, survivor annuity, Social Security taxation, Traditional withdrawals and conversions are included by the tax engine.</p>
   `;
 }
 
@@ -9015,6 +9081,9 @@ function projectRun(inputs, ctx, randomize, shocks) {
         investmentFeesAnnual, spendingPhaseMultiplier, taxFilingStatus: taxFilingStatusThisYear,
         fedMarginalRate: fedMarginal, ltcgMarginalRate: age >= inputs.retirementAge ? ltcgMarginal : null,
         irmaaSurchargeMonthly: irmaaSurchargeMonthlyForRow,
+        standardDeductionAnnual: standardDeductionThisYear,
+        magiEstimateAnnual: Math.max(0, magiHistory[y] || 0),
+        taxableIncomeEstimateAnnual: Math.max(0, (magiHistory[y] || 0) - standardDeductionThisYear),
         federalTaxAnnual, stateTaxAnnual, ficaTaxAnnual, taxableInterestIncome,
         balTrad, balRoth, rothConversionAmount, rothConversionTax,
         balBrokeragePies: balBrokeragePies.slice(), acctBegin, acctEnd, contribByAccount, savingsWithdrawByAccount
@@ -13050,6 +13119,7 @@ function render() {
   }
   renderSurvivorExpenseChecklist();
   renderSurvivorshipSummary(inputs, rows);
+  renderSurvivorTaxSummary(inputs);
   renderSurvivorshipCharts(inputs, rows, ctx);
 
   renderDebtPayoffPlan(inputs, ctx);
@@ -13410,6 +13480,8 @@ if (initialPageAtBoot) {
   // default "whatif" selection can be written back during startup before the saved route is restored.
   if (initialPageAtBoot === 'explorers') activateExplorerAnalysis(initialExplorerAnalysisAtBoot, false, false);
 }
+
+restoreAnthropicApiKeyLocal();
 
 // Start session restoration before any account rows, calculations, Monte Carlo runs, or charts are
 // built. A data-specific rendering exception must never prevent authentication from starting and
