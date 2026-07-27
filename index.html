@@ -2515,7 +2515,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.5</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.7</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -5980,7 +5980,7 @@ function setRetirementAge(age) {
 // of sitting frozen at whatever date was last set (or the page default) while the age moves on.
 // Defaults to the last calendar day of the target month, matching the field's own "last working day"
 // framing and its original Dec 31 default.
-function syncRetirementDateFromAge() {
+function syncRetirementDateFromAge(shouldRender = true) {
   const ageEl = els('retirementAge');
   const dateEl = els('retirementDate');
   if (!ageEl || !dateEl) return;
@@ -6010,7 +6010,7 @@ function syncRetirementDateFromAge() {
       ? `≈ ${yrs} yr${yrs !== 1 ? 's' : ''} ${mo} mo from today — ${label}`
       : `That's in the past — ${label}`;
   }
-  render();
+  if (shouldRender) render();
 }
 function syncRetirementDate(force) {
   const dateVal = els('retirementDate').value;
@@ -6240,12 +6240,16 @@ const CLOUD_DIRTY_KEY = 'retirementPlannerCloudDirty_v1';
 const CLOUD_RESET_PENDING_KEY = 'retirementPlannerCloudResetPending_v1';
 const CLOUD_EMAIL_KEY = 'retirementPlannerCloudEmail_v1';
 const RETIREMENT_AGE_PENDING_KEY = 'retirementPlannerRetirementAgePending_v1';
-const PLANNER_AUTH_STORAGE_KEY = 'retirementPlannerSupabaseAuth_v1';
-const PLANNER_REFRESH_STORAGE_KEY = 'retirementPlannerRefreshToken_v1';
-const PLANNER_ACCESS_STORAGE_KEY = 'retirementPlannerAccessToken_v1';
-const PLANNER_EXPIRY_STORAGE_KEY = 'retirementPlannerTokenExpiry_v1';
-const PLANNER_USER_STORAGE_KEY = 'retirementPlannerCloudUser_v1';
-const PLANNER_SESSION_DB_NAME = 'retirementPlannerSecureSession_v1';
+// Version 2 deliberately isolates the official Supabase client from old planner tabs that used the
+// original hand-built refresh-token code. Those older tabs can remain open in browser history and
+// rotate a shared v1 token, invalidating the current page's session. A one-time fresh sign-in creates
+// a clean v2 session that older builds cannot read or overwrite.
+const PLANNER_AUTH_STORAGE_KEY = 'retirementPlannerSupabaseAuth_v2';
+const PLANNER_REFRESH_STORAGE_KEY = 'retirementPlannerRefreshToken_v2';
+const PLANNER_ACCESS_STORAGE_KEY = 'retirementPlannerAccessToken_v2';
+const PLANNER_EXPIRY_STORAGE_KEY = 'retirementPlannerTokenExpiry_v2';
+const PLANNER_USER_STORAGE_KEY = 'retirementPlannerCloudUser_v2';
+const PLANNER_SESSION_DB_NAME = 'retirementPlannerSecureSession_v2';
 const PLANNER_SESSION_DB_STORE = 'session';
 const CLOUD_SYNC_DELAY_MS = 1400;
 
@@ -6358,7 +6362,10 @@ function applyPendingRetirementAgeSelection(remoteUpdatedAt = null) {
   const ageEl = els('retirementAge');
   if (!ageEl) return false;
   ageEl.value = pending.age;
-  syncRetirementDateFromAge();
+  // Cloud application performs one controlled render after every field has been restored. Rendering
+  // here would run the entire planner halfway through that restore and can touch optional UI elements
+  // before their section has been rebuilt.
+  syncRetirementDateFromAge(false);
   return true;
 }
 function plannerAuthCookieGet(key) {
@@ -6745,6 +6752,11 @@ function clearPlannerCloudRecoveryTimer() {
   if (plannerCloudRecoveryTimer) clearTimeout(plannerCloudRecoveryTimer);
   plannerCloudRecoveryTimer = null;
 }
+function discardPendingLocalCloudEdits() {
+  cloudStorageRemove(CLOUD_DIRTY_KEY);
+  cloudStorageRemove(RETIREMENT_AGE_PENDING_KEY);
+  plannerCloudLocalEditDuringInit = false;
+}
 async function applyPlannerCloudState(state, remoteUpdatedAt) {
   if (!state || typeof state !== 'object') return;
   plannerCloudApplying = true;
@@ -6761,16 +6773,23 @@ async function applyPlannerCloudState(state, remoteUpdatedAt) {
     }
     if (state.checkpointBaseline !== undefined) { checkpointBaseline = state.checkpointBaseline; persistCheckpointBaseline(); }
     if (Array.isArray(state.checkpointHistory)) { checkpointHistory = state.checkpointHistory; persistCheckpointHistory(); }
-    renderExpenseRows(); renderBrokeragePieRows(); renderPieContributionRows(); renderDebtRows();
-    renderFutureExpenseRows(); renderWindfallRows(); renderInsuranceRows();
-    const route = state.activePage && PAGE_LABELS[state.activePage] ? state.activePage : readInitialPage();
-    if (route) activatePageShell(route);
-    if (route === 'explorers' && isKnownExplorerAnalysis(state.selectedExplorerAnalysis)) {
-      activateExplorerAnalysis(state.selectedExplorerAnalysis, false, false);
+    try {
+      renderExpenseRows(); renderBrokeragePieRows(); renderPieContributionRows(); renderDebtRows();
+      renderFutureExpenseRows(); renderWindfallRows(); renderInsuranceRows();
+      const route = state.activePage && PAGE_LABELS[state.activePage] ? state.activePage : readInitialPage();
+      if (route) activatePageShell(route);
+      if (route === 'explorers' && isKnownExplorerAnalysis(state.selectedExplorerAnalysis)) {
+        activateExplorerAnalysis(state.selectedExplorerAnalysis, false, false);
+      }
+      render();
+      collapsePlannerCards();
+    } catch (renderError) {
+      // Synchronization has already restored the plan fields at this point. A missing or optional
+      // display element must not turn a valid cloud load into a Sync error, leave the dirty marker
+      // behind, and repeatedly ask the user to resolve the same device conflict.
+      console.error('Planner display refresh after cloud load failed:', renderError);
     }
-    render();
     saveState();
-    collapsePlannerCards();
   } finally {
     plannerCloudApplying = false;
   }
@@ -6855,6 +6874,7 @@ async function handlePlannerCloudSession(session) {
           const savedAt = await pushCurrentPlanToCloud();
           setCloudStatus('saved', 'Saved', `This device’s version was synchronized ${formatCloudTime(savedAt)}.`);
         } else {
+          discardPendingLocalCloudEdits();
           await applyPlannerCloudState(data.plan_data, data.updated_at);
           setCloudStatus('saved', 'Saved', `The latest cloud version from ${formatCloudTime(data.updated_at)} is loaded.`);
         }
@@ -6867,6 +6887,7 @@ async function handlePlannerCloudSession(session) {
           const savedAt = await pushCurrentPlanToCloud();
           setCloudStatus('saved', 'Saved', `This device’s offline work was synchronized ${formatCloudTime(savedAt)}.`);
         } else {
+          discardPendingLocalCloudEdits();
           await applyPlannerCloudState(data.plan_data, data.updated_at);
           setCloudStatus('saved', 'Saved', `The cloud version from ${formatCloudTime(data.updated_at)} is loaded.`);
         }
@@ -6890,31 +6911,11 @@ async function handlePlannerCloudSession(session) {
     hidePlannerSignIn();
     updateCloudAccountUi();
   } catch (e) {
-    if (navigator.onLine !== false && plannerCloudStartupRetryCount < 2) {
-      plannerCloudStartupRetryCount += 1;
-      const retryNumber = plannerCloudStartupRetryCount;
-      setCloudStatus('syncing', 'Retrying…', `The first cloud check did not complete. Retrying automatically (${retryNumber} of 2).`);
-      setTimeout(() => handlePlannerCloudSession(plannerCloudSession), 1200 * retryNumber);
-      return;
-    }
     plannerCloudReady = true;
     plannerCloudTrackChanges = true;
     hidePlannerSignIn();
     updateCloudAccountUi();
-    if (navigator.onLine !== false && plannerCloudRecoveryCount < 3) {
-      plannerCloudRecoveryCount += 1;
-      const recoveryNumber = plannerCloudRecoveryCount;
-      const recoveryDelay = [3000, 7000, 15000][recoveryNumber - 1];
-      setCloudStatus('syncing', 'Reconnecting…',
-        `Your local plan remains protected. Secure synchronization will retry automatically (${recoveryNumber} of 3).`);
-      clearPlannerCloudRecoveryTimer();
-      plannerCloudRecoveryTimer = setTimeout(() => {
-        plannerCloudRecoveryTimer = null;
-        plannerCloudStartupRetryCount = 0;
-        handlePlannerCloudSession(plannerCloudSession);
-      }, recoveryDelay);
-      return;
-    }
+    clearPlannerCloudRecoveryTimer();
     setCloudStatus(navigator.onLine === false ? 'offline' : 'error', navigator.onLine === false ? 'Offline' : 'Sync error',
       `The local copy is still available. ${e && e.message ? e.message : 'Supabase could not be reached.'}`);
   } finally {
@@ -6955,6 +6956,7 @@ async function syncCloudNow(userInitiated = false) {
       }
       const useThisDevice = confirm('Another device has changed the cloud plan. Select OK to replace it with this device’s current plan, or Cancel to load the cloud version.');
       if (!useThisDevice) {
+        discardPendingLocalCloudEdits();
         await applyPlannerCloudState(remote.plan_data, remote.updated_at);
         setCloudStatus('saved', 'Saved', `The cloud version from ${formatCloudTime(remote.updated_at)} is loaded.`);
         return true;
