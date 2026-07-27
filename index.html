@@ -2514,7 +2514,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.3</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.4</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -5968,6 +5968,7 @@ function setRetirementAge(age) {
   if (!plannerCloudReady) plannerCloudLocalEditDuringInit = true;
   els('retirementAge').value = age;
   syncRetirementDateFromAge();
+  rememberRetirementAgeSelection(age);
   // The pill is a span rather than a native input, so explicitly persist the paired age/date now.
   // This also prevents a late-finishing initial cloud read from restoring the pre-tap value.
   saveState();
@@ -6237,6 +6238,7 @@ const CLOUD_LAST_SYNC_KEY = 'retirementPlannerCloudLastSync_v1';
 const CLOUD_DIRTY_KEY = 'retirementPlannerCloudDirty_v1';
 const CLOUD_RESET_PENDING_KEY = 'retirementPlannerCloudResetPending_v1';
 const CLOUD_EMAIL_KEY = 'retirementPlannerCloudEmail_v1';
+const RETIREMENT_AGE_PENDING_KEY = 'retirementPlannerRetirementAgePending_v1';
 const PLANNER_AUTH_STORAGE_KEY = 'retirementPlannerSupabaseAuth_v1';
 const PLANNER_REFRESH_STORAGE_KEY = 'retirementPlannerRefreshToken_v1';
 const PLANNER_ACCESS_STORAGE_KEY = 'retirementPlannerAccessToken_v1';
@@ -6258,6 +6260,7 @@ let plannerCloudHandlingUserId = null;
 let plannerCloudRefreshPromise = null;
 let plannerCloudLocalEditDuringInit = false;
 let plannerCloudStartupRetryCount = 0;
+let plannerCloudRecoveryCount = 0;
 
 function plannerSessionDbOpen() {
   return new Promise((resolve, reject) => {
@@ -6324,6 +6327,36 @@ function cloudStorageSet(key, value) {
 }
 function cloudStorageRemove(key) {
   try { localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
+}
+function rememberRetirementAgeSelection(age) {
+  const selectedAge = Number(age);
+  if (!Number.isFinite(selectedAge)) return;
+  const selectedAt = new Date().toISOString();
+  cloudStorageSet(RETIREMENT_AGE_PENDING_KEY, JSON.stringify({ age:selectedAge, selectedAt }));
+  // Do not depend on plannerCloudTrackChanges here. A retirement-age button can be selected while
+  // session restoration is still running, and that deliberate selection must win on the next load.
+  cloudStorageSet(CLOUD_DIRTY_KEY, selectedAt);
+}
+function readPendingRetirementAgeSelection() {
+  try {
+    const pending = JSON.parse(cloudStorageGet(RETIREMENT_AGE_PENDING_KEY) || 'null');
+    return pending && Number.isFinite(Number(pending.age)) && pending.selectedAt ? {
+      age:Number(pending.age),
+      selectedAt:String(pending.selectedAt)
+    } : null;
+  } catch (e) {
+    return null;
+  }
+}
+function applyPendingRetirementAgeSelection(remoteUpdatedAt = null) {
+  const pending = readPendingRetirementAgeSelection();
+  if (!pending) return false;
+  if (remoteUpdatedAt && !timestampAfter(pending.selectedAt, remoteUpdatedAt, 0)) return false;
+  const ageEl = els('retirementAge');
+  if (!ageEl) return false;
+  ageEl.value = pending.age;
+  syncRetirementDateFromAge();
+  return true;
 }
 function plannerAuthCookieGet(key) {
   try {
@@ -6690,6 +6723,10 @@ async function applyPlannerCloudState(state, remoteUpdatedAt) {
   plannerCloudApplying = true;
   try {
     applyState(state);
+    // A retirement-age button selection made on this device is a protected local edit. If it is
+    // newer than the cloud row being loaded, restore it after applying that row so age 57 cannot be
+    // replaced by an older saved age 55 during refresh.
+    applyPendingRetirementAgeSelection(remoteUpdatedAt);
     if (typeof state.sharedNotesText === 'string') {
       sharedNotesText = state.sharedNotesText;
       cloudStorageSet(SHARED_NOTES_KEY, sharedNotesText);
@@ -6730,6 +6767,7 @@ async function pushCurrentPlanToCloud() {
   const confirmedAt = savedRow && savedRow.updated_at ? savedRow.updated_at : updatedAt;
   cloudStorageSet(CLOUD_LAST_SYNC_KEY, confirmedAt);
   cloudStorageRemove(CLOUD_DIRTY_KEY);
+  cloudStorageRemove(RETIREMENT_AGE_PENDING_KEY);
   return confirmedAt;
 }
 async function handlePlannerCloudSession(session) {
@@ -6752,7 +6790,8 @@ async function handlePlannerCloudSession(session) {
     plannerCloudSession = session;
     const data = await loadPlannerCloudRow(session.user.id);
     const resetPending = cloudStorageGet(CLOUD_RESET_PENDING_KEY) === '1';
-    const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY);
+    const pendingRetirementAge = readPendingRetirementAgeSelection();
+    const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY) || (pendingRetirementAge && pendingRetirementAge.selectedAt);
     const lastSyncAt = cloudStorageGet(CLOUD_LAST_SYNC_KEY);
     if (resetPending) {
       cloudStorageRemove(CLOUD_RESET_PENDING_KEY);
@@ -6807,6 +6846,7 @@ async function handlePlannerCloudSession(session) {
       }
     }
     plannerCloudStartupRetryCount = 0;
+    plannerCloudRecoveryCount = 0;
     plannerCloudReady = true;
     plannerCloudTrackChanges = true;
     hidePlannerSignIn();
@@ -6822,9 +6862,21 @@ async function handlePlannerCloudSession(session) {
     plannerCloudReady = true;
     plannerCloudTrackChanges = true;
     hidePlannerSignIn();
+    updateCloudAccountUi();
+    if (navigator.onLine !== false && plannerCloudRecoveryCount < 3) {
+      plannerCloudRecoveryCount += 1;
+      const recoveryNumber = plannerCloudRecoveryCount;
+      const recoveryDelay = [3000, 7000, 15000][recoveryNumber - 1];
+      setCloudStatus('syncing', 'Reconnecting…',
+        `Your local plan remains protected. Secure synchronization will retry automatically (${recoveryNumber} of 3).`);
+      setTimeout(() => {
+        plannerCloudStartupRetryCount = 0;
+        handlePlannerCloudSession(plannerCloudSession);
+      }, recoveryDelay);
+      return;
+    }
     setCloudStatus(navigator.onLine === false ? 'offline' : 'error', navigator.onLine === false ? 'Offline' : 'Sync error',
       `The local copy is still available. ${e && e.message ? e.message : 'Supabase could not be reached.'}`);
-    updateCloudAccountUi();
   } finally {
     plannerCloudHandlingUserId = null;
   }
@@ -6939,12 +6991,14 @@ async function initPlannerCloudSync() {
       return;
     }
     let storedSession = readPlannerStoredSessionAny();
-    const databaseSession = await plannerSessionDbGet();
-    if (!storedSession && databaseSession && databaseSession.access_token && databaseSession.refresh_token && databaseSession.user) {
-      // IndexedDB is only a fallback. Its rotating refresh token can lag behind the localStorage copy,
-      // so it must never replace a session that the normal browser store successfully restored.
-      storedSession = databaseSession;
-      savePlannerCloudSession(storedSession);
+    if (!storedSession) {
+      const databaseSession = await plannerSessionDbGet();
+      if (databaseSession && databaseSession.access_token && databaseSession.refresh_token && databaseSession.user) {
+        // IndexedDB is only a fallback. Its rotating refresh token can lag behind the localStorage copy,
+        // so it must never replace a session that the normal browser store successfully restored.
+        storedSession = databaseSession;
+        savePlannerCloudSession(storedSession);
+      }
     }
     if (storedSession) {
       plannerCloudSession = storedSession;
@@ -13814,6 +13868,9 @@ function render() {
 }
 
 const hadSavedState = loadState();
+// Restore an age-button selection before the first calculation even if the previous cloud attempt
+// ended during refresh. The pending marker is removed only after Supabase confirms the saved plan.
+applyPendingRetirementAgeSelection();
 // loadState() never touches sharedNotesText (see applyState()) — notes live only in their own
 // dedicated key, always updated on every keystroke, so this is the one and only source of truth for
 // what shows up in every page's textarea at boot.
@@ -13870,7 +13927,10 @@ restoreAnthropicApiKeyLocal();
 // Start session restoration before any account rows, calculations, Monte Carlo runs, or charts are
 // built. A data-specific rendering exception must never prevent authentication from starting and
 // leave the badge permanently at its original "Checking" label.
-initPlannerCloudSync();
+// Let the locally saved plan finish its first render before starting authentication and network work.
+// On slower phones this prevents the initial Supabase request from competing with the planner's
+// calculation-heavy startup; a manual Sync succeeding immediately afterward was the telltale symptom.
+setTimeout(initPlannerCloudSync, 900);
 
 renderExpenseRows();
 renderBrokeragePieRows();
@@ -13898,6 +13958,7 @@ if (shellEl) {
     // the latest value disappear. This lightweight save does not rerun Monte Carlo on every keystroke.
     if (!e.target || !e.target.matches || !e.target.matches('input, select') || e.target.classList.contains('shared-notes-textarea')) return;
     if (!plannerCloudReady) plannerCloudLocalEditDuringInit = true;
+    if (e.target.id === 'retirementAge') rememberRetirementAgeSelection(e.target.value);
     // Record the pending cloud change immediately. If Refresh is pressed before the short local-save
     // timer fires, persistBeforeLeaving() will still save the value and the next load will know that
     // this device—not the older cloud row—contains the newer plan.
