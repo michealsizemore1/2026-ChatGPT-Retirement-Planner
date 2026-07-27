@@ -1957,6 +1957,7 @@
               <option value="assisted_living">Assisted living facility</option>
               <option value="memory_care">Memory care</option>
               <option value="nursing_home">Nursing home / skilled nursing (semi-private)</option>
+              <option value="medicaid_spenddown">Plan to use savings, then apply for baseline Medicaid long-term care</option>
               <option value="family">Family member provides care (informal)</option>
               <option value="none">Will not need long-term care</option>
             </select>
@@ -1966,7 +1967,7 @@
           <div class="note" style="margin-top:8px;">
             <b>VA spouse Aid &amp; Attendance / SMC add-on:</b> The $201.41 monthly amount is modeled as additional tax-free VA compensation paid to the veteran while a dependent spouse medically qualifies for Aid &amp; Attendance. It has no income or net-worth test, but it is not automatic: VA medical approval is required, it applies only while the spouse meets the criteria, and the 2026 rate should be reviewed each year. This is separate from survivor Aid &amp; Attendance after the veteran's death.
           </div>
-          <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Picking a care type fills in a Boise-area cost estimate below, which you can still edit by hand — it doesn't lock the number. Estimates: in-home care ~$30/hr (Boise-area caregiver rates run roughly $21-$36/hr depending on agency vs. independent hire); assisted living ~$54,000/yr (Boise-area facilities run lower than Idaho's ~$60,000/yr statewide median); memory care ~$72,000/yr; nursing home (semi-private) ~$120,000/yr (Idaho runs above the national median here); family/informal care ~$12,000/yr for incidentals, supplies, and respite care rather than a wage. Source: Genworth/CareScout Cost of Care Survey and local caregiver rate data, today's dollars.</p>
+          <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Picking a care type fills in a Boise-area cost estimate below, which you can still edit by hand — it doesn't lock the number. Estimates: in-home care ~$30/hr (Boise-area caregiver rates run roughly $21-$36/hr depending on agency vs. independent hire); assisted living ~$54,000/yr (Boise-area facilities run lower than Idaho's ~$60,000/yr statewide median); memory care ~$72,000/yr; nursing home (semi-private) ~$120,000/yr (Idaho runs above the national median here); family/informal care ~$12,000/yr for incidentals, supplies, and respite care rather than a wage. The Medicaid planning option uses the same conservative nursing-home estimate while savings remain available and flags a shortfall when accessible resources are exhausted; it does not assume that Medicaid approval is automatic. Source: Genworth/CareScout Cost of Care Survey and local caregiver rate data, today's dollars.</p>
           <p style="font-size:16.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;">Paid from Roth TSP first, tax-free and outside the normal withdrawal order; if Roth TSP runs short, the remainder pulls from Brokerage, eligible Traditional TSP, HYSA, Savings, and Checking. The plan records a shortfall only after those accessible household resources are exhausted. Your own long-term care is assumed to be covered by insurance and isn't modeled as a portfolio cost — say the word if that's not the case.</p>
         </div>
       </div>
@@ -2435,8 +2436,8 @@
         <div id="coachTips"></div>
       </div>
 
-      <div class="card">
-        <h3 onclick="toggleCard(this)">Ask AI<span class="sub-label">Open-ended questions, answered with a snapshot of your plan as context</span></h3>
+      <div class="card no-autocollapse coach-question-card">
+        <h3>Ask AI<span class="sub-label">The question box remains visible whenever you open Coach</span></h3>
         <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Ask a question here or use the floating Ask AI button from any other section. Your current plan is included automatically as context.</p>
         <div class="coach-question-station">
           <label for="coachPageQuestion">What would you like to explore?</label>
@@ -5710,7 +5711,9 @@ function toggleCard(h3) {
 // (embedded tools, score tiles, wellness summaries, etc.) alone when they have no clickable heading.
 function collapsePlannerCards(root = document) {
   root.querySelectorAll('.card').forEach(card => {
-    if (card.querySelector(':scope > h3[onclick*="toggleCard"]')) card.classList.add('collapsed');
+    if (!card.classList.contains('no-autocollapse') && card.querySelector(':scope > h3[onclick*="toggleCard"]')) {
+      card.classList.add('collapsed');
+    }
   });
 }
 
@@ -5954,8 +5957,12 @@ setInterval(() => {
 }, 1500);
 
 function setRetirementAge(age) {
+  if (!plannerCloudReady) plannerCloudLocalEditDuringInit = true;
   els('retirementAge').value = age;
   syncRetirementDateFromAge();
+  // The pill is a span rather than a native input, so explicitly persist the paired age/date now.
+  // This also prevents a late-finishing initial cloud read from restoring the pre-tap value.
+  saveState();
 }
 
 // Reverse of syncRetirementDate below: fires when the Retirement age field itself (or one of the
@@ -6142,6 +6149,7 @@ const LTC_CARE_TYPE_COSTS = {
   assisted_living: 54000,   // Boise-area facilities run below Idaho's ~$60k/yr statewide median
   memory_care: 72000,       // assisted living + typical memory-care add-on
   nursing_home: 120000,     // semi-private skilled nursing, Idaho runs above the national median
+  medicaid_spenddown: 120000, // conservative private-pay baseline until Medicaid eligibility is established
   family: 12000,            // incidentals/respite/supplies, not a full wage replacement
   none: 0
 };
@@ -6155,6 +6163,11 @@ function renderLtcVaAidReadout() {
   const readout = els('ltcVaAidReadout');
   const type = els('ltcCareType') ? els('ltcCareType').value : 'custom';
   if (!readout) return;
+  if (type === 'medicaid_spenddown') {
+    readout.style.display = 'block';
+    readout.innerHTML = `<b>Selected strategy:</b> Use accessible savings for care, then apply for Idaho Medicaid long-term-care coverage. The projection uses the entered private-pay cost and identifies when household resources can no longer cover it; it does not presume approval or erase the cost automatically. Idaho's 2026 published long-term-care limits include a $3,002 monthly individual income limit and $2,000 individual resource limit, but medical-level-of-care rules, community-spouse protections, exempt assets, income contribution, the five-year transfer review, and estate recovery can materially change the result. Review this strategy with Idaho Medicaid and an elder-law attorney before relying on it.`;
+    return;
+  }
   const includesVaAid = type === 'inhome_parttime_va' || type === 'va_spouse_aa_only';
   readout.style.display = includesVaAid ? 'block' : 'none';
   if (!includesVaAid) {
@@ -6234,6 +6247,8 @@ let plannerCloudSyncing = false;
 let plannerCloudSyncPending = false;
 let plannerCloudSyncTimer = null;
 let plannerCloudHandlingUserId = null;
+let plannerCloudRefreshPromise = null;
+let plannerCloudLocalEditDuringInit = false;
 
 function plannerSessionDbOpen() {
   return new Promise((resolve, reject) => {
@@ -6491,13 +6506,24 @@ async function plannerSupabaseRequest(path, options = {}, timeoutMs = 10000) {
   }
 }
 async function refreshPlannerCloudSession(session) {
-  const refreshed = await plannerSupabaseRequest('/auth/v1/token?grant_type=refresh_token', {
-    method:'POST',
-    body:JSON.stringify({ refresh_token:session.refresh_token })
-  });
-  savePlannerCloudSession(refreshed);
-  await plannerSessionDbSet(refreshed);
-  return refreshed;
+  // A refresh token rotates when it is used. During page startup several asynchronous tasks can ask
+  // for a session at nearly the same moment; sharing one refresh promise prevents a second request
+  // from trying to reuse the just-rotated token and producing a false Sync error.
+  if (plannerCloudRefreshPromise) return plannerCloudRefreshPromise;
+  plannerCloudRefreshPromise = (async () => {
+    const refreshed = await plannerSupabaseRequest('/auth/v1/token?grant_type=refresh_token', {
+      method:'POST',
+      body:JSON.stringify({ refresh_token:session.refresh_token })
+    }, 20000);
+    savePlannerCloudSession(refreshed);
+    await plannerSessionDbSet(refreshed);
+    return refreshed;
+  })();
+  try {
+    return await plannerCloudRefreshPromise;
+  } finally {
+    plannerCloudRefreshPromise = null;
+  }
 }
 async function ensurePlannerCloudSession() {
   let session = plannerCloudSession || readPlannerStoredSessionAny();
@@ -6510,11 +6536,29 @@ async function ensurePlannerCloudSession() {
   }
   return session;
 }
-async function plannerDatabaseRequest(path, options = {}, timeoutMs = 12000) {
+async function plannerDatabaseRequest(path, options = {}, timeoutMs = 20000) {
   const session = await ensurePlannerCloudSession();
   if (!session) throw new Error('Sign in before synchronizing.');
   options.headers = Object.assign({}, options.headers || {}, { Authorization:`Bearer ${session.access_token}` });
   return plannerSupabaseRequest('/rest/v1/' + path, options, timeoutMs);
+}
+
+async function loadPlannerCloudRow(userId) {
+  // Supabase projects and mobile connections can need an extra moment immediately after a refresh.
+  // The manual Sync button succeeding after the first load failed showed that the request itself was
+  // valid. Retry this read once before presenting an error; GET is safe to repeat and no plan is changed.
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const rows = await plannerDatabaseRequest('retirement_plans?select=plan_data,updated_at&user_id=eq.' +
+        encodeURIComponent(userId) + '&limit=1', { method:'GET' }, 20000);
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    } catch (e) {
+      lastError = e;
+      if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 750));
+    }
+  }
+  throw lastError || new Error('The secure cloud copy could not be loaded.');
 }
 function plannerAuthStorageWorks() {
   const probeKey = 'retirementPlannerStorageProbe_v1';
@@ -6681,9 +6725,7 @@ async function handlePlannerCloudSession(session) {
   setCloudStatus('syncing', 'Loading…', 'Checking Supabase for the latest saved plan.');
   try {
     plannerCloudSession = session;
-    const rows = await plannerDatabaseRequest('retirement_plans?select=plan_data,updated_at&user_id=eq.' +
-      encodeURIComponent(session.user.id) + '&limit=1', { method:'GET' });
-    const data = Array.isArray(rows) && rows.length ? rows[0] : null;
+    const data = await loadPlannerCloudRow(session.user.id);
     const resetPending = cloudStorageGet(CLOUD_RESET_PENDING_KEY) === '1';
     const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY);
     const lastSyncAt = cloudStorageGet(CLOUD_LAST_SYNC_KEY);
@@ -6696,6 +6738,13 @@ async function handlePlannerCloudSession(session) {
       plannerCloudTrackChanges = true;
       const savedAt = await pushCurrentPlanToCloud();
       setCloudStatus('saved', 'Saved', `This device created the first secure cloud copy ${formatCloudTime(savedAt)}.`);
+    } else if (plannerCloudLocalEditDuringInit) {
+      // A person can tap a field while the initial cloud read is still in progress. Preserve that
+      // deliberate edit instead of letting the just-finished remote load snap the control back.
+      plannerCloudTrackChanges = true;
+      const savedAt = await pushCurrentPlanToCloud();
+      plannerCloudLocalEditDuringInit = false;
+      setCloudStatus('saved', 'Saved', `Your change was synchronized ${formatCloudTime(savedAt)}.`);
     } else {
       const cloudChangedSinceLastSync = !!lastSyncAt && timestampAfter(data.updated_at, lastSyncAt);
       if (localDirtyAt && cloudChangedSinceLastSync) {
@@ -6852,8 +6901,12 @@ async function initPlannerCloudSync() {
     let storedSession = readPlannerStoredSessionAny();
     const databaseSession = await plannerSessionDbGet();
     if (databaseSession && databaseSession.access_token && databaseSession.refresh_token && databaseSession.user) {
-      storedSession = databaseSession;
-      savePlannerCloudSession(databaseSession);
+      // IndexedDB is a fallback copy and may lag behind localStorage after Supabase rotates a refresh
+      // token. Prefer whichever copy has the later expiry rather than always replacing the newer one.
+      const storedExpiry = Number(storedSession && storedSession.expires_at || 0);
+      const databaseExpiry = Number(databaseSession.expires_at || 0);
+      if (!storedSession || databaseExpiry > storedExpiry) storedSession = databaseSession;
+      savePlannerCloudSession(storedSession);
     }
     if (storedSession) {
       plannerCloudSession = storedSession;
@@ -13801,6 +13854,7 @@ if (shellEl) {
     // "change" event when Refresh is clicked while an input still has focus, which previously made
     // the latest value disappear. This lightweight save does not rerun Monte Carlo on every keystroke.
     if (!e.target || !e.target.matches || !e.target.matches('input, select') || e.target.classList.contains('shared-notes-textarea')) return;
+    if (!plannerCloudReady) plannerCloudLocalEditDuringInit = true;
     clearTimeout(pendingFieldSave);
     pendingFieldSave = setTimeout(() => saveState(), 150);
   });
@@ -13809,7 +13863,10 @@ if (shellEl) {
     // here — they persist directly via updateSharedNotes()'s own oninput handler instead of the full
     // render() pipeline, so typing/blurring in a notes box never triggers a 1000-simulation Monte
     // Carlo re-run just to save a few words of text.
-    if (e.target && e.target.matches && e.target.matches('input, select')) render();
+    if (e.target && e.target.matches && e.target.matches('input, select')) {
+      if (!plannerCloudReady) plannerCloudLocalEditDuringInit = true;
+      render();
+    }
   });
 }
 
