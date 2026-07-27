@@ -2514,7 +2514,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.2</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.3</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -2555,10 +2555,18 @@
         <button class="add-btn" onclick="printFullPlan()">Print Full Plan</button>
       </div>
 
-      <div class="card print-sensitive">
-        <h3 onclick="toggleCard(this)">Coach AI Chat<span class="sub-label">Optional — only used if you add a key</span></h3>
+      <div class="card print-sensitive no-autocollapse">
+        <h3>Coach AI Chat<span class="sub-label">Question box remains open on Settings</span></h3>
         <div class="field"><label>Anthropic API key</label><input type="password" id="anthropicApiKey" placeholder="sk-ant-..." autocomplete="off" oninput="saveAnthropicApiKeyLocal()"></div>
         <button type="button" class="add-btn" style="margin:0 0 10px;background:#fdf3f1;color:var(--danger);" onclick="clearAnthropicApiKeyLocal()">Remove saved API key from this device</button>
+        <div class="coach-question-station" style="display:block !important;margin:4px 0 12px;">
+          <label for="coachSettingsQuestion">Ask Coach AI a question</label>
+          <textarea id="coachSettingsQuestion" rows="4" placeholder="Type your retirement-planning question here…"></textarea>
+          <div class="coach-question-actions">
+            <button type="button" class="add-btn" onclick="askFromSettingsPage()">Ask Coach</button>
+            <button type="button" class="add-btn coach-secondary-btn" onclick="toggleFloatingAi(true)">View conversation</button>
+          </div>
+        </div>
         <p style="font-size:16.5px;color:var(--muted);margin:0;line-height:1.55;">This file has no backend — adding a key here lets the Ask AI panel (and the Coach page) call the Anthropic API directly from your browser. The key is saved only in this device's browser so it survives a refresh. It is excluded from Supabase synchronization, JSON backups, GitHub source, and printing; enter it separately on each device. Each question sends a full snapshot of your plan to Anthropic's servers. The conversation itself is saved locally; use "New chat" to clear it. Leave the key blank to keep the AI fully offline.</p>
       </div>
     </div>
@@ -6249,6 +6257,7 @@ let plannerCloudSyncTimer = null;
 let plannerCloudHandlingUserId = null;
 let plannerCloudRefreshPromise = null;
 let plannerCloudLocalEditDuringInit = false;
+let plannerCloudStartupRetryCount = 0;
 
 function plannerSessionDbOpen() {
   return new Promise((resolve, reject) => {
@@ -6785,16 +6794,31 @@ async function handlePlannerCloudSession(session) {
           await applyPlannerCloudState(data.plan_data, data.updated_at);
           setCloudStatus('saved', 'Saved', `The cloud version from ${formatCloudTime(data.updated_at)} is loaded.`);
         }
+      } else if (localDirtyAt && !cloudChangedSinceLastSync) {
+        // This device has a saved change and the cloud copy has not changed since the last successful
+        // sync. The local change is therefore the newer version. Push it instead of reloading the older
+        // cloud row—which previously made retirement-age selections snap back after a quick refresh.
+        plannerCloudTrackChanges = true;
+        const savedAt = await pushCurrentPlanToCloud();
+        setCloudStatus('saved', 'Saved', `This device's pending change was synchronized ${formatCloudTime(savedAt)}.`);
       } else {
         await applyPlannerCloudState(data.plan_data, data.updated_at);
         setCloudStatus('saved', 'Saved', `The latest cloud version from ${formatCloudTime(data.updated_at)} is loaded.`);
       }
     }
+    plannerCloudStartupRetryCount = 0;
     plannerCloudReady = true;
     plannerCloudTrackChanges = true;
     hidePlannerSignIn();
     updateCloudAccountUi();
   } catch (e) {
+    if (navigator.onLine !== false && plannerCloudStartupRetryCount < 2) {
+      plannerCloudStartupRetryCount += 1;
+      const retryNumber = plannerCloudStartupRetryCount;
+      setCloudStatus('syncing', 'Retrying…', `The first cloud check did not complete. Retrying automatically (${retryNumber} of 2).`);
+      setTimeout(() => handlePlannerCloudSession(plannerCloudSession), 1200 * retryNumber);
+      return;
+    }
     plannerCloudReady = true;
     plannerCloudTrackChanges = true;
     hidePlannerSignIn();
@@ -6916,12 +6940,10 @@ async function initPlannerCloudSync() {
     }
     let storedSession = readPlannerStoredSessionAny();
     const databaseSession = await plannerSessionDbGet();
-    if (databaseSession && databaseSession.access_token && databaseSession.refresh_token && databaseSession.user) {
-      // IndexedDB is a fallback copy and may lag behind localStorage after Supabase rotates a refresh
-      // token. Prefer whichever copy has the later expiry rather than always replacing the newer one.
-      const storedExpiry = Number(storedSession && storedSession.expires_at || 0);
-      const databaseExpiry = Number(databaseSession.expires_at || 0);
-      if (!storedSession || databaseExpiry > storedExpiry) storedSession = databaseSession;
+    if (!storedSession && databaseSession && databaseSession.access_token && databaseSession.refresh_token && databaseSession.user) {
+      // IndexedDB is only a fallback. Its rotating refresh token can lag behind the localStorage copy,
+      // so it must never replace a session that the normal browser store successfully restored.
+      storedSession = databaseSession;
       savePlannerCloudSession(storedSession);
     }
     if (storedSession) {
@@ -7036,7 +7058,7 @@ function restoreAccountsCardsBackup(backup) {
   } catch (e) { /* storage unavailable, ignore */ }
 }
 
-function saveState(includePortableData = false) {
+function saveState(includePortableData = false, suppressCloudSync = false) {
   const fields = {};
   document.querySelectorAll('.page input, .page select').forEach(el => {
     if (!el.id || el.id === 'anthropicApiKey') return;
@@ -7055,7 +7077,7 @@ function saveState(includePortableData = false) {
     checkpointHistory, spendingBasis, jobLossDate, dollarView, activePage
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
-  schedulePlannerCloudSync();
+  if (!suppressCloudSync) schedulePlannerCloudSync();
   // Accounts & Cards remains a separate tool and is intentionally excluded from planner backups.
   return state;
 }
@@ -12163,8 +12185,8 @@ function toggleFloatingAi(forceOpen) {
 
 // The Coach page has its own full-size question field. It feeds the same saved conversation used by
 // the floating Ask AI panel so there is one continuous chat history, regardless of where a question starts.
-function askFromCoachPage() {
-  const pageInput = els('coachPageQuestion');
+function askFromQuestionField(fieldId) {
+  const pageInput = els(fieldId);
   const question = (pageInput && pageInput.value || '').trim();
   if (!question) {
     if (pageInput) pageInput.focus();
@@ -12184,6 +12206,8 @@ function askFromCoachPage() {
   pageInput.value = '';
   sendCoachChatMessage();
 }
+function askFromCoachPage() { askFromQuestionField('coachPageQuestion'); }
+function askFromSettingsPage() { askFromQuestionField('coachSettingsQuestion'); }
 
 function renderCoachAiGate() {
   const gate = els('coachAiGate');
@@ -13874,6 +13898,10 @@ if (shellEl) {
     // the latest value disappear. This lightweight save does not rerun Monte Carlo on every keystroke.
     if (!e.target || !e.target.matches || !e.target.matches('input, select') || e.target.classList.contains('shared-notes-textarea')) return;
     if (!plannerCloudReady) plannerCloudLocalEditDuringInit = true;
+    // Record the pending cloud change immediately. If Refresh is pressed before the short local-save
+    // timer fires, persistBeforeLeaving() will still save the value and the next load will know that
+    // this device—not the older cloud row—contains the newer plan.
+    markPlannerCloudDirty();
     clearTimeout(pendingFieldSave);
     pendingFieldSave = setTimeout(() => saveState(), 150);
   });
@@ -13906,7 +13934,9 @@ function persistBeforeLeaving() {
       if (location.hash !== pageHash) history.replaceState(null, '', pageHash);
     }
   } catch (e) { /* storage unavailable, ignore */ }
-  saveState();
+  // Save the final DOM values locally without creating a brand-new cloud-dirty marker merely because
+  // the page is unloading. Real edits already mark themselves dirty in their input/change handlers.
+  saveState(false, true);
 }
 window.addEventListener('pagehide', persistBeforeLeaving);
 window.addEventListener('beforeunload', persistBeforeLeaving);
