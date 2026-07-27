@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Michael & Cynthia's Retirement</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Document Vault: client-side text extraction only, nothing is uploaded anywhere. pdf.js reads PDF text
      content; mammoth.js reads .docx text content. Both loaded with `defer` so a slow/blocked CDN never
      holds up the rest of the page — Document Vault upload just checks `window.pdfjsLib`/`window.mammoth`
@@ -2514,7 +2515,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.4</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.5</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -6258,9 +6259,11 @@ let plannerCloudSyncPending = false;
 let plannerCloudSyncTimer = null;
 let plannerCloudHandlingUserId = null;
 let plannerCloudRefreshPromise = null;
+let plannerSupabaseClient = null;
 let plannerCloudLocalEditDuringInit = false;
 let plannerCloudStartupRetryCount = 0;
 let plannerCloudRecoveryCount = 0;
+let plannerCloudRecoveryTimer = null;
 
 function plannerSessionDbOpen() {
   return new Promise((resolve, reject) => {
@@ -6406,6 +6409,22 @@ const plannerAuthStorage = {
     plannerAuthCookieRemove(key);
   }
 };
+function getPlannerSupabaseClient() {
+  if (plannerSupabaseClient) return plannerSupabaseClient;
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    throw new Error('The secure synchronization library did not load. Check the internet connection and refresh once.');
+  }
+  plannerSupabaseClient = window.supabase.createClient(PLANNER_SUPABASE_URL, PLANNER_SUPABASE_PUBLISHABLE_KEY, {
+    auth:{
+      storage:plannerAuthStorage,
+      storageKey:PLANNER_AUTH_STORAGE_KEY,
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:false
+    }
+  });
+  return plannerSupabaseClient;
+}
 function formatCloudTime(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -6555,10 +6574,11 @@ async function refreshPlannerCloudSession(session) {
   // from trying to reuse the just-rotated token and producing a false Sync error.
   if (plannerCloudRefreshPromise) return plannerCloudRefreshPromise;
   plannerCloudRefreshPromise = (async () => {
-    const refreshed = await plannerSupabaseRequest('/auth/v1/token?grant_type=refresh_token', {
-      method:'POST',
-      body:JSON.stringify({ refresh_token:session.refresh_token })
-    }, 20000);
+    const client = getPlannerSupabaseClient();
+    const result = await client.auth.refreshSession({ refresh_token:session.refresh_token });
+    if (result.error) throw result.error;
+    const refreshed = result.data && result.data.session;
+    if (!refreshed) throw new Error('The saved secure session could not be renewed. Sign in once to reconnect this device.');
     savePlannerCloudSession(refreshed);
     await plannerSessionDbSet(refreshed);
     return refreshed;
@@ -6570,14 +6590,17 @@ async function refreshPlannerCloudSession(session) {
   }
 }
 async function ensurePlannerCloudSession() {
-  let session = plannerCloudSession || readPlannerStoredSessionAny();
-  if (!session) return null;
-  const expiresAt = Number(session.expires_at || 0);
-  if (!session.access_token || !session.user || !expiresAt || expiresAt <= Math.floor(Date.now() / 1000) + 60) {
-    session = await refreshPlannerCloudSession(session);
-  } else {
-    plannerCloudSession = session;
+  const client = getPlannerSupabaseClient();
+  const result = await client.auth.getSession();
+  if (result.error) throw result.error;
+  let session = result.data && result.data.session;
+  if (!session) {
+    const stored = plannerCloudSession || readPlannerStoredSessionAny();
+    if (!stored || !stored.refresh_token) return null;
+    session = await refreshPlannerCloudSession(stored);
   }
+  plannerCloudSession = session;
+  savePlannerCloudSession(session);
   return session;
 }
 async function plannerDatabaseRequest(path, options = {}, timeoutMs = 20000, allowAuthRetry = true) {
@@ -6638,10 +6661,10 @@ async function signInToPlanner(event) {
   if (button) { button.disabled = true; button.textContent = 'Signing in…'; }
   showCloudAuthMessage('Securely signing in…');
   try {
-    const session = await plannerSupabaseRequest('/auth/v1/token?grant_type=password', {
-      method:'POST',
-      body:JSON.stringify({ email, password })
-    });
+    const result = await getPlannerSupabaseClient().auth.signInWithPassword({ email, password });
+    if (result.error) throw result.error;
+    const session = result.data && result.data.session;
+    if (!session) throw new Error('Supabase did not return a secure session.');
     savePlannerCloudSession(session);
     await plannerSessionDbSet(session);
     cloudStorageSet(CLOUD_EMAIL_KEY, email);
@@ -6718,6 +6741,10 @@ function timestampAfter(a, b, toleranceMs = 1000) {
   const tb = b ? new Date(b).getTime() : 0;
   return isFinite(ta) && isFinite(tb) && ta > tb + toleranceMs;
 }
+function clearPlannerCloudRecoveryTimer() {
+  if (plannerCloudRecoveryTimer) clearTimeout(plannerCloudRecoveryTimer);
+  plannerCloudRecoveryTimer = null;
+}
 async function applyPlannerCloudState(state, remoteUpdatedAt) {
   if (!state || typeof state !== 'object') return;
   plannerCloudApplying = true;
@@ -6752,9 +6779,11 @@ async function applyPlannerCloudState(state, remoteUpdatedAt) {
 }
 async function pushCurrentPlanToCloud() {
   if (!plannerCloudUser) throw new Error('Sign in before synchronizing.');
+  const pendingRetirementAge = readPendingRetirementAgeSelection();
+  if (pendingRetirementAge) applyPendingRetirementAgeSelection();
   const state = saveState();
   const updatedAt = new Date().toISOString();
-  const rows = await plannerDatabaseRequest('retirement_plans?on_conflict=user_id&select=updated_at', {
+  const rows = await plannerDatabaseRequest('retirement_plans?on_conflict=user_id&select=plan_data,updated_at', {
     method:'POST',
     headers:{ Prefer:'resolution=merge-duplicates,return=representation' },
     body:JSON.stringify({
@@ -6765,9 +6794,17 @@ async function pushCurrentPlanToCloud() {
   });
   const savedRow = Array.isArray(rows) ? rows[0] : rows;
   const confirmedAt = savedRow && savedRow.updated_at ? savedRow.updated_at : updatedAt;
+  if (pendingRetirementAge) {
+    const confirmedAge = savedRow && savedRow.plan_data && savedRow.plan_data.fields
+      ? Number(savedRow.plan_data.fields.retirementAge) : NaN;
+    if (confirmedAge !== Number(pendingRetirementAge.age)) {
+      cloudStorageSet(CLOUD_DIRTY_KEY, pendingRetirementAge.selectedAt);
+      throw new Error('The selected retirement age was kept safely on this device but was not confirmed by the cloud. Synchronization will retry.');
+    }
+  }
   cloudStorageSet(CLOUD_LAST_SYNC_KEY, confirmedAt);
   cloudStorageRemove(CLOUD_DIRTY_KEY);
-  cloudStorageRemove(RETIREMENT_AGE_PENDING_KEY);
+  if (pendingRetirementAge) cloudStorageRemove(RETIREMENT_AGE_PENDING_KEY);
   return confirmedAt;
 }
 async function handlePlannerCloudSession(session) {
@@ -6847,6 +6884,7 @@ async function handlePlannerCloudSession(session) {
     }
     plannerCloudStartupRetryCount = 0;
     plannerCloudRecoveryCount = 0;
+    clearPlannerCloudRecoveryTimer();
     plannerCloudReady = true;
     plannerCloudTrackChanges = true;
     hidePlannerSignIn();
@@ -6869,7 +6907,9 @@ async function handlePlannerCloudSession(session) {
       const recoveryDelay = [3000, 7000, 15000][recoveryNumber - 1];
       setCloudStatus('syncing', 'Reconnecting…',
         `Your local plan remains protected. Secure synchronization will retry automatically (${recoveryNumber} of 3).`);
-      setTimeout(() => {
+      clearPlannerCloudRecoveryTimer();
+      plannerCloudRecoveryTimer = setTimeout(() => {
+        plannerCloudRecoveryTimer = null;
         plannerCloudStartupRetryCount = 0;
         handlePlannerCloudSession(plannerCloudSession);
       }, recoveryDelay);
@@ -6883,6 +6923,7 @@ async function handlePlannerCloudSession(session) {
 }
 async function syncCloudNow(userInitiated = false) {
   clearTimeout(plannerCloudSyncTimer);
+  if (userInitiated) clearPlannerCloudRecoveryTimer();
   if (!plannerCloudUser) {
     if (userInitiated) showPlannerSignIn();
     return false;
@@ -6904,7 +6945,8 @@ async function syncCloudNow(userInitiated = false) {
       encodeURIComponent(plannerCloudUser.id) + '&limit=1', { method:'GET' });
     const remote = Array.isArray(rows) && rows.length ? rows[0] : null;
     const lastSyncAt = cloudStorageGet(CLOUD_LAST_SYNC_KEY);
-    const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY);
+    const pendingRetirementAge = readPendingRetirementAgeSelection();
+    const localDirtyAt = cloudStorageGet(CLOUD_DIRTY_KEY) || (pendingRetirementAge && pendingRetirementAge.selectedAt);
     const cloudChangedSinceLastSync = remote && lastSyncAt && timestampAfter(remote.updated_at, lastSyncAt);
     if (localDirtyAt && cloudChangedSinceLastSync) {
       if (!userInitiated) {
@@ -6919,6 +6961,8 @@ async function syncCloudNow(userInitiated = false) {
       }
     }
     const savedAt = await pushCurrentPlanToCloud();
+    clearPlannerCloudRecoveryTimer();
+    plannerCloudRecoveryCount = 0;
     setCloudStatus('saved', 'Saved', `All planner changes were synchronized ${formatCloudTime(savedAt)}.`);
     return true;
   } catch (e) {
@@ -6937,13 +6981,8 @@ async function syncCloudNow(userInitiated = false) {
 async function signOutOfPlanner() {
   if (plannerCloudUser && cloudStorageGet(CLOUD_DIRTY_KEY)) await syncCloudNow(true);
   try {
-    const session = await ensurePlannerCloudSession();
-    if (session) {
-      await plannerSupabaseRequest('/auth/v1/logout', {
-        method:'POST',
-        headers:{ Authorization:`Bearer ${session.access_token}` }
-      }, 6000);
-    }
+    const result = await getPlannerSupabaseClient().auth.signOut();
+    if (result.error) throw result.error;
   } catch (e) { /* local sign-out must still complete if the network is unavailable */ }
   savePlannerCloudSession(null);
   await plannerSessionDbRemove();
