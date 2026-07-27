@@ -1342,7 +1342,7 @@
         </div>
         <div class="field">
           <label>Planned last working day</label>
-          <input type="date" id="retirementDate" value="" oninput="syncRetirementDate(true)">
+          <input type="date" id="retirementDate" value="" onchange="syncRetirementDate(true)">
           <div id="retirementDateHint" style="font-size:16.5px;color:var(--muted);margin-top:4px;"></div>
         </div>
         <div class="field"><label>Plan until age (your life expectancy)</label><input type="number" id="lifeExpectancy" value="95" min="60" max="105"></div>
@@ -2431,15 +2431,10 @@
       </div>
       <div class="page-header"><h2>Coach</h2><p>Automated suggestions based on your current plan, plus an optional AI chat for open-ended questions.</p></div>
 
-      <div class="card">
-        <h3 onclick="toggleCard(this)">Next Steps<span class="sub-label">Use Financial Wellness to identify priorities, then test or discuss them here</span></h3>
-        <div id="coachTips"></div>
-      </div>
-
       <div class="card no-autocollapse coach-question-card">
-        <h3>Ask AI<span class="sub-label">The question box remains visible whenever you open Coach</span></h3>
+        <h3>Ask Coach AI<span class="sub-label">Type your question below—the question box always remains open</span></h3>
         <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Ask a question here or use the floating Ask AI button from any other section. Your current plan is included automatically as context.</p>
-        <div class="coach-question-station">
+        <div class="coach-question-station" style="display:block !important;">
           <label for="coachPageQuestion">What would you like to explore?</label>
           <textarea id="coachPageQuestion" rows="4" placeholder="For example: Which changes would improve my plan without reducing travel spending?"></textarea>
           <div class="coach-question-actions">
@@ -2448,6 +2443,11 @@
           </div>
           <p class="coach-question-hint">The response opens in the conversation panel and is saved on this device.</p>
         </div>
+      </div>
+
+      <div class="card">
+        <h3 onclick="toggleCard(this)">Next Steps<span class="sub-label">Use Financial Wellness to identify priorities, then test or discuss them here</span></h3>
+        <div id="coachTips"></div>
       </div>
     </div>
 
@@ -2514,7 +2514,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations.</p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.2</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -6495,7 +6495,9 @@ async function plannerSupabaseRequest(path, options = {}, timeoutMs = 10000) {
       const message = data && (data.msg || data.message || data.error_description || data.error)
         ? (data.msg || data.message || data.error_description || data.error)
         : `Supabase returned ${response.status}.`;
-      throw new Error(message);
+      const requestError = new Error(message);
+      requestError.status = response.status;
+      throw requestError;
     }
     return data;
   } catch (e) {
@@ -6536,11 +6538,25 @@ async function ensurePlannerCloudSession() {
   }
   return session;
 }
-async function plannerDatabaseRequest(path, options = {}, timeoutMs = 20000) {
-  const session = await ensurePlannerCloudSession();
+async function plannerDatabaseRequest(path, options = {}, timeoutMs = 20000, allowAuthRetry = true) {
+  let session = await ensurePlannerCloudSession();
   if (!session) throw new Error('Sign in before synchronizing.');
   options.headers = Object.assign({}, options.headers || {}, { Authorization:`Bearer ${session.access_token}` });
-  return plannerSupabaseRequest('/rest/v1/' + path, options, timeoutMs);
+  try {
+    return await plannerSupabaseRequest('/rest/v1/' + path, options, timeoutMs);
+  } catch (e) {
+    // Supabase can invalidate an otherwise unexpired access token after a browser refresh. Refresh the
+    // session once and repeat the authenticated request instead of displaying a Sync error that vanishes
+    // as soon as the user presses Synchronize now.
+    if (allowAuthRetry && e && (e.status === 401 || e.status === 403) && session.refresh_token) {
+      session = await refreshPlannerCloudSession(session);
+      const retryOptions = Object.assign({}, options, {
+        headers:Object.assign({}, options.headers || {}, { Authorization:`Bearer ${session.access_token}` })
+      });
+      return plannerDatabaseRequest(path, retryOptions, timeoutMs, false);
+    }
+    throw e;
+  }
 }
 
 async function loadPlannerCloudRow(userId) {
@@ -6548,14 +6564,14 @@ async function loadPlannerCloudRow(userId) {
   // The manual Sync button succeeding after the first load failed showed that the request itself was
   // valid. Retry this read once before presenting an error; GET is safe to repeat and no plan is changed.
   let lastError = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const rows = await plannerDatabaseRequest('retirement_plans?select=plan_data,updated_at&user_id=eq.' +
         encodeURIComponent(userId) + '&limit=1', { method:'GET' }, 20000);
       return Array.isArray(rows) && rows.length ? rows[0] : null;
     } catch (e) {
       lastError = e;
-      if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 750));
+      if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 750 * (attempt + 1)));
     }
   }
   throw lastError || new Error('The secure cloud copy could not be loaded.');
@@ -7602,7 +7618,10 @@ function recomputeAgesFromDates() {
   ].forEach(([dateId, ageId, hintId, basisId]) => {
     if (els(dateId) && els(dateId).value) syncAgeDate(dateId, ageId, hintId, basisId);
   });
-  if (els('retirementDate') && els('retirementDate').value) syncRetirementDate(true);
+  // The saved Retirement age is the primary selection. Its paired date was already synchronized at
+  // the moment either control was changed, so startup should update only the date hint—not derive a
+  // different age and undo the user's saved retirement-age button selection.
+  if (els('retirementDate') && els('retirementDate').value) syncRetirementDate(false);
   renderExpenseRows();
   renderFutureExpenseRows();
   renderWindfallRows();
