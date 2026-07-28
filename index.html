@@ -1186,7 +1186,6 @@
   <symbol id="navIconVault" viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.2-2.7 7.5-7 9.5-4.3-2-7-5.3-7-9.5V6z"/><path d="M9 9h6M9 12h4M9 15h3"/></symbol>
   <symbol id="navIconCoach" viewBox="0 0 24 24"><path d="M4 5.5h16v11H9l-5 3z"/><path d="M12 8l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5L11 10z"/></symbol>
   <symbol id="navIconWellness" viewBox="0 0 24 24"><path d="M3.5 12h4l2-5 4 10 2.2-5h4.8"/><path d="M12 21C7.5 18.6 4 15.4 4 10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 3.5c0 4.9-3.5 8.1-8 10.5z"/></symbol>
-  <symbol id="navIconAccounts" viewBox="0 0 24 24"><path d="M4 7.5h14a2 2 0 0 1 2 2v8H6a2 2 0 0 1-2-2z"/><path d="M4 9l12-4v2.5M15.5 12h4.5v3h-4.5a1.5 1.5 0 0 1 0-3z"/></symbol>
   <symbol id="navIconInsights" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
   <symbol id="navIconExplorers" viewBox="0 0 24 24"><path d="M3.5 6l5-2 7 2 5-2v14l-5 2-7-2-5 2zM8.5 4v14M15.5 6v14"/><path d="M11 13l2-4 1.5 3.5z"/></symbol>
   <symbol id="navIconSurvivorship" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="8.5" r="2.5"/><path d="M3.5 19v-2a4.5 4.5 0 0 1 7.8-3M14.5 15.2c1.7-2 5-1 5 1.5 0 2-2.5 3.5-5 5-2.5-1.5-5-3-5-5 0-2.5 3.3-3.5 5-1.5z"/></symbol>
@@ -1218,7 +1217,6 @@
   <div class="nav-item" data-page="vault" onclick="showPage('vault')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconVault"></use></svg><span>Document Vault</span></div>
   <div class="nav-item" data-page="coach" onclick="showPage('coach')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconCoach"></use></svg><span>Coach</span></div>
   <div class="nav-item" data-page="wellness" onclick="showPage('wellness')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconWellness"></use></svg><span>Financial Wellness</span></div>
-  <div class="nav-item" data-page="accounts" onclick="showPage('accounts')"><svg class="nav-icon" aria-hidden="true"><use href="#navIconAccounts"></use></svg><span>Accounts &amp; Cards</span></div>
   <div class="nav-dropdown" id="insightsNavGroup">
     <button type="button" class="nav-item nav-dropdown-toggle" id="insightsNavToggle" onclick="toggleInsightsMenu(event)"><span class="nav-label"><svg class="nav-icon" aria-hidden="true"><use href="#navIconInsights"></use></svg><span>Insights</span></span><span class="nav-caret">&#9662;</span></button>
     <div class="nav-submenu" id="insightsSubmenu">
@@ -1676,7 +1674,7 @@
           <div class="field"><label>Savings ($)</label><input type="number" id="savingsBalance" value="0" step="500"></div>
           <div class="field"><label>HYSA ($)</label><input type="number" id="hysaBalance" value="0" step="500"></div>
         </div>
-        <p style="font-size:14.5px;color:var(--muted);margin:4px 0 12px;">These planning balances are entered manually. Accounts &amp; Cards remains separate and cannot change them.</p>
+        <p style="font-size:14.5px;color:var(--muted);margin:4px 0 12px;">These planning balances are entered manually and feed the retirement projections.</p>
         <div class="two-col">
           <div class="field"><label>Checking/Savings APY (%)</label><input type="number" id="cashRate" value="0" step="0.1"></div>
           <div class="field"><label>HYSA APY (%)</label><input type="number" id="hysaRate" value="3.2" step="0.1"></div>
@@ -1706,8 +1704,8 @@
       </div>
     </div>
 
-    <!-- ================= ACCOUNTS & CARDS ================= -->
-    <div class="page" data-page="accounts">
+    <!-- Retired transaction tracker retained only as inert legacy markup so existing browser data is not disturbed. -->
+    <template id="retiredAccountsCardsFeature">
       <div class="shared-notes-card">
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
@@ -1730,7 +1728,7 @@
         </div>
         <p id="ccChartsEmptyNote" style="display:none;color:var(--muted);text-align:center;padding:20px 0 4px;">No credit card expenses recorded yet — add some on the register above and this will fill in.</p>
       </div>
-    </div>
+    </template>
 
     <!-- ================= HOUSING ================= -->
     <div class="page" data-page="housing">
@@ -2515,7 +2513,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.28.2</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.28.3</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -2529,12 +2527,12 @@
           <button type="button" class="add-btn" style="background:#fdf3f1;color:var(--danger);display:none;" id="cloudSignOutBtn" onclick="signOutOfPlanner()">Sign out</button>
         </div>
         <p class="cloud-status-detail" id="cloudStatusDetail">Your local planner remains available while the secure connection is checked.</p>
-        <p style="font-size:14px;color:var(--muted);margin:10px 0 0;line-height:1.5;">The retirement plan and shared Notes synchronize after changes. Accounts &amp; Cards, Document Vault files, Coach conversations, and your Anthropic API key remain only on this device. Continue downloading an occasional JSON backup as an independent recovery copy.</p>
+        <p style="font-size:14px;color:var(--muted);margin:10px 0 0;line-height:1.5;">The retirement plan and shared Notes synchronize after changes. Document Vault files, Coach conversations, and your Anthropic API key remain only on this device. Continue downloading an occasional JSON backup as an independent recovery copy.</p>
       </div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Backup &amp; Restore</h3>
-        <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Your planner data is saved automatically on this device and, while signed in, synchronized through Supabase. The JSON backup remains an independent recovery copy and never includes your Anthropic API key. Accounts &amp; Cards and Document Vault remain separate; use their own exports or keep copies of the original files.</p>
+        <p style="font-size:16px;color:var(--muted);margin:0 0 12px;line-height:1.55;">Your planner data is saved automatically on this device and, while signed in, synchronized through Supabase. The JSON backup remains an independent recovery copy and never includes your Anthropic API key. Document Vault files remain separate; keep copies of the original files.</p>
         <button class="add-btn" onclick="downloadBackup()">Download planner backup (.json)</button>
         <div class="field" style="margin-top:14px;">
           <label>Restore from backup</label>
@@ -2542,7 +2540,7 @@
         </div>
         <hr class="divider">
         <button class="add-btn" style="background:#fdf3f1; color:var(--danger);" onclick="resetAllData()">Reset planner to defaults</button>
-        <p style="font-size:14.5px;color:var(--muted);margin:8px 0 0;">This resets the retirement plan, notes, checkpoints, and Coach conversation. Accounts &amp; Cards and Document Vault remain separate and are not erased.</p>
+        <p style="font-size:14.5px;color:var(--muted);margin:8px 0 0;">This resets the retirement plan, notes, checkpoints, and Coach conversation. Document Vault files remain separate and are not erased.</p>
       </div>
 
       <div class="card">
@@ -5591,7 +5589,7 @@ function setJobLossDate(value) {
 }
 const PAGE_LABELS = {
   dashboard:'Overview', personal:'Personal & Family', income:'Income', survivorship:'Survivorship', moneyflows:'Money Flows',
-  investments:'Investments', accounts:'Accounts & Cards', housing:'Housing', expenses:'Expenses', incomeexpenses:'Income vs Expenses', debt:'Debt',
+  investments:'Investments', housing:'Housing', expenses:'Expenses', incomeexpenses:'Income vs Expenses', debt:'Debt',
   gap:'Income Gap & Withdrawals', medical:'Medical', estate:'Estate Planning', vault:'Document Vault', insurance:'Insurance',
   taxes:'Taxes', assumptions:'Assumptions & Guardrails',
   explorers:'Explorers', coach:'Coach', wellness:'Financial Wellness', settings:'Settings'
@@ -5778,7 +5776,6 @@ function showPage(pageId, persistPage = true) {
   if (lastSnapshot) refreshSectionCharts(pageId, lastSnapshot);
   if (pageId === 'explorers') renderExplorers();
   if (pageId === 'coach') { renderCoachTips(); renderCoachAiGate(); }
-  if (pageId === 'accounts') { loadTrackerFrame(); renderCCSpendingCharts(); }
   if (pageId === 'vault') { renderVaultDocuments(); renderVaultAiGate(); renderVaultSearch(); }
   if (pageId === 'savings') renderSavingsPage();
   closeMenu();
@@ -12973,7 +12970,7 @@ function restoreFromFile(file) {
       renderFutureExpenseRows(); renderWindfallRows(); renderInsuranceRows();
       saveState();
       render();
-      alert('Retirement planner backup restored. Accounts & Cards and Document Vault were left unchanged.');
+      alert('Retirement planner backup restored. Document Vault files were left unchanged.');
     } catch (err) {
       alert('Could not read that file — is it a backup exported from this tool?');
     }
@@ -13028,7 +13025,7 @@ window.addEventListener('beforeprint', () => {
 window.addEventListener('afterprint', restoreApiKeyAfterPrint);
 
 function resetAllData() {
-  if (!confirm('This resets the retirement plan, notes, checkpoints, and Coach conversation on this device and in the synchronized cloud plan. Accounts & Cards and Document Vault remain separate. Continue?')) return;
+  if (!confirm('This resets the retirement plan, notes, checkpoints, and Coach conversation on this device and in the synchronized cloud plan. Document Vault files remain separate. Continue?')) return;
   if (plannerCloudUser) cloudStorageSet(CLOUD_RESET_PENDING_KEY, '1');
   try {
     [STORAGE_KEY, ACTIVE_PAGE_KEY, EXPLORER_ANALYSIS_KEY, DOLLAR_VIEW_KEY, SPENDING_BASIS_KEY,
