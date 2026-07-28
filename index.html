@@ -2515,7 +2515,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.27.8</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.28.1</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -2658,7 +2658,20 @@ header p  { font-size:.75rem; opacity:.8; margin-top:1px; }
 .form-card .f   { min-width:110px; flex:1; max-width:190px; }
 .form-card .ft  { min-width:180px; flex:1.5; max-width:250px; }
 .form-card .fd  { min-width:150px; flex:2; max-width:270px; }
-.form-actions { display:flex; gap:6px; align-items:flex-end; flex-shrink:0; }
+.form-card .category-field { min-width:340px; flex:2.6; max-width:520px; }
+.form-card .who-field { min-width:140px; max-width:180px; }
+.category-controls {
+  display:grid;
+  grid-template-columns:minmax(120px,1fr) auto auto auto;
+  gap:4px;
+  align-items:stretch;
+}
+.category-controls select { min-width:0; }
+.category-controls .btn { padding-left:8px; padding-right:8px; }
+.form-actions {
+  display:flex; gap:6px; align-items:flex-end; flex:0 0 auto;
+  min-width:150px; justify-content:flex-start; flex-wrap:wrap;
+}
 
 .fl label { display:block; font-size:.66rem; font-weight:600; color:var(--muted);
   margin-bottom:3px; text-transform:uppercase; letter-spacing:.04em; }
@@ -2874,6 +2887,8 @@ tbody tr.wth-row:hover { background:#fef2f2; }
 /* Mobile overrides — only structural, no column tricks */
 @media (max-width:1100px) {
   .summary { grid-template-columns:repeat(3,1fr); }
+  .form-card { justify-content:flex-start; }
+  .form-card .category-field { flex-basis:340px; }
 }
 @media (max-width:700px) {
   html,body { height:auto !important; overflow:auto !important; display:block !important; }
@@ -2882,10 +2897,19 @@ tbody tr.wth-row:hover { background:#fef2f2; }
   .table-card { display:block; flex:none; min-height:auto; overflow:visible; }
   .tscroll { overflow-x:hidden; overflow-y:visible; max-height:none; }
   .summary { grid-template-columns:1fr 1fr; }
-  .form-card .f,.form-card .fd,.form-card .ft { max-width:100%; flex-basis:100%; }
+  .form-card { align-items:stretch; }
+  .form-card .f,.form-card .fd,.form-card .ft,.form-card .category-field,.form-card .who-field {
+    max-width:100%; min-width:0; flex-basis:100%;
+  }
+  .form-actions { width:100%; min-width:0; }
   .filters-card { flex-direction:column; align-items:stretch; }
   .filters-card .f { max-width:100%; }
   .filter-actions { justify-content:flex-end; }
+}
+@media (max-width:430px) {
+  .category-controls { grid-template-columns:1fr repeat(3,auto); }
+  .category-controls select { grid-column:1/-1; }
+  .category-controls .btn { min-height:34px; }
 }
 </style>
 </head>
@@ -2937,9 +2961,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="txn-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="txn-desc" placeholder="e.g. Starbucks, Amazon…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="txn-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl">
+    <div class="f fl category-field">
       <label>Category</label>
-      <div style="display:flex;gap:4px;">
+      <div class="category-controls">
         <select id="txn-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-ghost btn-sm" id="btn-split-cat" title="Split this purchase across categories">Split</button>
         <button class="btn btn-ghost btn-sm" id="btn-delete-cat" title="Delete selected category">Delete</button>
@@ -2963,7 +2987,7 @@ tbody tr.wth-row:hover { background:#fef2f2; }
         <label for="tp" class="pl">Payment</label>
       </div>
     </div>
-    <div class="f fl">
+    <div class="f fl who-field">
       <label>Who</label>
       <div class="who-toggle">
         <input type="radio" name="txn-who" id="wm" value="me">
@@ -3060,9 +3084,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="chk-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="chk-desc" placeholder="e.g. Paycheck, Rent…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="chk-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl">
+    <div class="f fl category-field">
       <label>Category</label>
-      <div style="display:flex;gap:4px;">
+      <div class="category-controls">
         <select id="chk-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="chk-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="chk-btn-delete-cat">Delete</button>
@@ -3156,9 +3180,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="mike-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="mike-desc" placeholder="e.g. Paycheck, Rent…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="mike-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl">
+    <div class="f fl category-field">
       <label>Category</label>
-      <div style="display:flex;gap:4px;">
+      <div class="category-controls">
         <select id="mike-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="mike-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="mike-btn-delete-cat">Delete</button>
@@ -3251,9 +3275,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="savings-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="savings-desc" placeholder="e.g. Transfer, Interest…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="savings-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl">
+    <div class="f fl category-field">
       <label>Category</label>
-      <div style="display:flex;gap:4px;">
+      <div class="category-controls">
         <select id="savings-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="savings-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="savings-btn-delete-cat">Delete</button>
@@ -3346,9 +3370,9 @@ TRACKER_HTML += `  <div class="table-card">
     <div class="f fl"><label>Date</label><input type="date" id="hysa-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="hysa-desc" placeholder="e.g. Transfer, Interest…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="hysa-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl">
+    <div class="f fl category-field">
       <label>Category</label>
-      <div style="display:flex;gap:4px;">
+      <div class="category-controls">
         <select id="hysa-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="hysa-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="hysa-btn-delete-cat">Delete</button>
