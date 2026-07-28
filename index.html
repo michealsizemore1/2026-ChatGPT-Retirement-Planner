@@ -2515,7 +2515,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.28.1</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.28.2</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -2961,9 +2961,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="txn-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="txn-desc" placeholder="e.g. Starbucks, Amazon…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="txn-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl category-field">
+    <div class="f fl category-field" style="flex:1 1 100%;max-width:none;min-width:0;">
       <label>Category</label>
-      <div class="category-controls">
+      <div class="category-controls" style="width:100%;">
         <select id="txn-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-ghost btn-sm" id="btn-split-cat" title="Split this purchase across categories">Split</button>
         <button class="btn btn-ghost btn-sm" id="btn-delete-cat" title="Delete selected category">Delete</button>
@@ -3084,9 +3084,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="chk-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="chk-desc" placeholder="e.g. Paycheck, Rent…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="chk-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl category-field">
+    <div class="f fl category-field" style="flex:1 1 100%;max-width:none;min-width:0;">
       <label>Category</label>
-      <div class="category-controls">
+      <div class="category-controls" style="width:100%;">
         <select id="chk-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="chk-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="chk-btn-delete-cat">Delete</button>
@@ -3180,9 +3180,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="mike-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="mike-desc" placeholder="e.g. Paycheck, Rent…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="mike-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl category-field">
+    <div class="f fl category-field" style="flex:1 1 100%;max-width:none;min-width:0;">
       <label>Category</label>
-      <div class="category-controls">
+      <div class="category-controls" style="width:100%;">
         <select id="mike-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="mike-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="mike-btn-delete-cat">Delete</button>
@@ -3275,9 +3275,9 @@ tbody tr.wth-row:hover { background:#fef2f2; }
     <div class="f fl"><label>Date</label><input type="date" id="savings-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="savings-desc" placeholder="e.g. Transfer, Interest…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="savings-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl category-field">
+    <div class="f fl category-field" style="flex:1 1 100%;max-width:none;min-width:0;">
       <label>Category</label>
-      <div class="category-controls">
+      <div class="category-controls" style="width:100%;">
         <select id="savings-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="savings-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="savings-btn-delete-cat">Delete</button>
@@ -3370,9 +3370,9 @@ TRACKER_HTML += `  <div class="table-card">
     <div class="f fl"><label>Date</label><input type="date" id="hysa-date"></div>
     <div class="fd fl"><label>Description</label><input type="text" id="hysa-desc" placeholder="e.g. Transfer, Interest…" maxlength="100"></div>
     <div class="f fl"><label>Amount ($)</label><input type="number" id="hysa-amt" placeholder="0.00" min="0.01" step="0.01"></div>
-    <div class="f fl category-field">
+    <div class="f fl category-field" style="flex:1 1 100%;max-width:none;min-width:0;">
       <label>Category</label>
-      <div class="category-controls">
+      <div class="category-controls" style="width:100%;">
         <select id="hysa-cat" style="flex:1;min-width:0;"></select>
         <button class="btn btn-sm" id="hysa-btn-split-cat">Split</button>
         <button class="btn btn-sm" id="hysa-btn-delete-cat">Delete</button>
