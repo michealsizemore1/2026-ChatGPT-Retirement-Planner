@@ -569,6 +569,21 @@
 
   details{margin-top:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 18px;}
   summary{cursor:pointer; font-weight:600; font-size:17.5px; color:var(--navy);}
+  .manual-intro{font-size:16px;line-height:1.6;color:var(--muted);margin:0 0 12px;}
+  .manual-topics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .manual-topic{margin:0;padding:0;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .manual-topic summary{padding:14px 42px 14px 16px;font-size:16.5px;line-height:1.35;position:relative;list-style:none;}
+  .manual-topic summary::-webkit-details-marker{display:none;}
+  .manual-topic summary::after{content:'+';position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:22px;color:var(--burgundy);}
+  .manual-topic[open] summary::after{content:'−';}
+  .manual-topic[open] summary{background:#f6f8fb;border-bottom:1px solid var(--border);}
+  .manual-body{padding:14px 16px 16px;color:var(--muted);font-size:15.5px;line-height:1.58;}
+  .manual-body p{margin:0 0 10px;}
+  .manual-body p:last-child{margin-bottom:0;}
+  .manual-body ul,.manual-body ol{margin:6px 0 10px 20px;padding:0;}
+  .manual-body li{margin:4px 0;}
+  .manual-note{padding:10px 12px;border-left:4px solid var(--gold);background:#fff9e8;color:var(--text);border-radius:4px;}
+  @media(max-width:760px){.manual-topics{grid-template-columns:1fr;}.manual-topic summary{font-size:16px;}}
   .table-scroll{overflow-x:auto;}
   table{width:100%; border-collapse:collapse; margin-top:12px; font-size:16.5px; min-width:1100px;}
   th,td{padding:8px 10px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap;}
@@ -2513,7 +2528,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Backup, restore, and integrations. <b>Build 2026.07.28.3</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Instructions, backup, restore, and integrations. <b>Build 2026.07.30.1</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -2546,6 +2561,185 @@
       <div class="card">
         <h3 onclick="toggleCard(this)">Data Quality Checklist<span class="sub-label">Potential blanks, conflicts, and items worth reviewing</span></h3>
         <div id="dataQualityChecklist"></div>
+      </div>
+
+      <div class="card" id="plannerInstructionManual">
+        <h3 onclick="toggleCard(this)">Planner Instruction Manual<span class="sub-label">Expand any topic for instructions, calculation notes, and audit guidance</span></h3>
+        <p class="manual-intro">This manual is maintained with the planner. Each topic can be expanded or collapsed without changing any plan value.</p>
+        <div class="manual-topics">
+          <details class="manual-topic">
+            <summary>1. Getting Started</summary>
+            <div class="manual-body">
+              <ol>
+                <li>Use <b>index.html</b> for GitHub Pages and <b>retirement-planner.html</b> when opening the planner directly.</li>
+                <li>Enter household dates, income, expenses, insurance, debts, medical costs, and account balances before interpreting results.</li>
+                <li>Review Money Flows and Assumptions &amp; Guardrails, then return to Overview.</li>
+                <li>On multiple devices, sign in through Secure Cloud Synchronization and wait for <b>Saved</b>.</li>
+                <li>Download a dated JSON backup after meaningful changes.</li>
+              </ol>
+              <p class="manual-note">The planner is a decision-support tool, not tax, legal, investment, insurance, or medical advice.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>2. Header, Navigation &amp; Shared Controls</summary>
+            <div class="manual-body">
+              <p>The hamburger menu opens the section list. My Plan, Insights, and Explorers are grouped menus. The sticky bar keeps the current section and sync status visible.</p>
+              <ul>
+                <li><b>Today's $</b> removes modeled inflation; <b>Future $</b> shows nominal future dollars.</li>
+                <li>Like to Spend, Must Spend, and Job Loss are alternatives. Only the selected basis is counted.</li>
+                <li>The Job Loss date controls when salary and paycheck contributions stop. The current strategy keeps Job Loss spending through age 59½.</li>
+                <li>Shared Notes appear on every page and save as you type.</li>
+                <li>Most cards start collapsed. Select a card title to expand or collapse it.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>3. Overview</summary>
+            <div class="manual-body">
+              <p>Overview summarizes the full plan. Correct questionable numbers in their input section.</p>
+              <ul>
+                <li><b>Enhanced Conservative</b> is the primary pessimistic score and includes fat-tailed shocks.</li>
+                <li><b>Standard Return Comparison</b> uses normal returns and is the better outside-planner comparison.</li>
+                <li>The deterministic ending balance is one average-return path, not a Monte Carlo result.</li>
+                <li>Net Worth Today includes eligible investments, Savings, HYSA, modeled vehicle/home value, and debt; Checking is excluded.</li>
+                <li>Use year-by-year detail and failure diagnostics to trace unexpected results.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>4. My Plan: Personal, Income &amp; Expenses</summary>
+            <div class="manual-body">
+              <p><b>Personal &amp; Family:</b> Enter both birthdates, ages, retirement timing, life expectancies, and spouse Social Security status. Dates support partial years and Rule-of-55 testing. The plan runs through the later household endpoint.</p>
+              <p><b>Income:</b> Enter salary and each guaranteed source separately. Military/government pensions are taxable; VA disability is tax-free; Social Security uses provisional-income taxation. Windfalls must not duplicate existing balances.</p>
+              <p><b>Expenses:</b> Recurring rows are monthly today's-dollar values. Only the selected Like to Spend, Must Spend, or Job Loss column applies. Healthcare grows with Medical Inflation. Do not duplicate rent, premiums, debt payments, medical costs, or one-time purchases modeled elsewhere.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>5. My Plan: Insurance, Investments &amp; Assumptions</summary>
+            <div class="manual-body">
+              <p><b>Insurance:</b> Premiums feed spending; coverage is informational unless a scenario uses it. Military SBP belongs here because pension income is gross. Do not repeat premiums elsewhere.</p>
+              <p><b>Investments:</b> Account type controls tax treatment; risk profile controls return and volatility. All Things Bucket is a Market-Linked Roth IRA. Sequence of Returns Risk is Taxable Cash-Like. Traditional TSP may use Rule of 55 only after a qualifying separation; Roth TSP follows the current age-59½ strategy.</p>
+              <p><b>Checkpoint Tracker:</b> Save a baseline, then compare later balances without silently rebasing it.</p>
+              <p><b>Assumptions &amp; Guardrails:</b> Review returns, volatility, inflation, COLA, guardrails, and optional spending phases. Go-Go/Slow-Go/No-Go affects only discretionary spending above Must Spend when enabled. Use 5,000 simulations for a steadier major-change check.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>6. My Plan: Estate, Debt &amp; Money Flows</summary>
+            <div class="manual-body">
+              <p><b>Estate Planning:</b> The checklist is informational. The inheritance estimate applies the heir tax rate to Traditional TSP, treats Roth accounts as tax-free in the simplified estimate, assumes a taxable-account step-up, and subtracts debts.</p>
+              <p><b>Debt:</b> Enter balance, APR, payment, timing, optional term, and vehicle value. The payoff view uses highest APR first. Vehicle value affects net worth but is not spendable cash. Do not also enter the same payment in Expenses.</p>
+              <p><b>Money Flows:</b> Contributions, excess-income saving, and withdrawal eligibility are controlled here. Sequential mode drains accounts in order; simultaneous mode divides withdrawals. An unchecked account remains in net worth but cannot fund a shortfall.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>7. My Plan: Medical, Long-Term Care &amp; Housing</summary>
+            <div class="manual-body">
+              <p><b>Medical:</b> Enter recurring premiums, each spouse's Medicare Part B timing, IRMAA/RMD assumptions, and spouse LTC. Medical costs grow with Medical Inflation.</p>
+              <ul>
+                <li>The $201.41 VA dependent-spouse addition may be used alone or with part-time in-home care while the veteran is alive, subject to VA approval.</li>
+                <li>For the Medicaid option, enter the expected annual out-of-pocket amount before Medicaid coverage—not the full facility price if Medicaid is expected to pay it.</li>
+              </ul>
+              <p><b>Housing:</b> Enter rent and rent growth. Enable a future purchase only when modeling price, down payment, mortgage, tax, insurance, appreciation, and equity. Do not duplicate rent or mortgage payments in Expenses.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>8. Document Vault, Coach &amp; Financial Wellness</summary>
+            <div class="manual-body">
+              <p><b>Document Vault:</b> Files and keyword search remain in the current browser and do not affect calculations. AI document questions send relevant text to Anthropic. Keep originals separately.</p>
+              <p><b>Coach / Ask AI:</b> Enter the Anthropic key in Settings on each device. The key, conversation, and Vault files are excluded from Supabase, JSON, GitHub source, and printing. AI answers never change plan inputs automatically.</p>
+              <p><b>Financial Wellness:</b> Separates strengths and pressure points without creating a blended score. Resolve coverage, account-access, tax, medical, and data-quality issues first.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>9. Insights</summary>
+            <div class="manual-body">
+              <ul>
+                <li><b>Income vs Expenses</b> compares recurring income with spending; portfolio withdrawals are excluded from income.</li>
+                <li><b>Income Gap &amp; Withdrawals</b> shows the after-tax gap and accounts used to close it.</li>
+                <li><b>Savings</b> traces balances, contributions, returns, withdrawals, and transfers by account and year.</li>
+                <li><b>Taxes</b> estimates federal ordinary tax, capital gains, Idaho tax, FICA, IRMAA, RMDs, and Roth conversions.</li>
+              </ul>
+              <p>Traditional withdrawals are ordinary income; Roth withdrawals are modeled tax-free; taxable interest is taxed annually; Social Security uses provisional-income taxation.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>10. Explorers</summary>
+            <div class="manual-body">
+              <p>Explorer results are temporary comparisons and do not permanently rewrite My Plan.</p>
+              <ul>
+                <li>What If I... tests one quick change; Retirement Timing compares ages 55–59.</li>
+                <li>Market Explorer applies a selected decline; Allocation Explorer compares allocation paths.</li>
+                <li>Historical Backtest runs available historical sequences; Social Security Claiming compares claim ages.</li>
+                <li>Sustainable Spending estimates spending at confidence targets.</li>
+                <li>Scenario Comparison, What-If Results, Market Risk, and Sensitivity compare stresses and influential assumptions.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>11. Survivorship</summary>
+            <div class="manual-body">
+              <p>Survivorship remains separate because death timing is unknown and does not change the main Overview score.</p>
+              <ul>
+                <li>Set assumed death age, SBP/survivor pension, DIC, insurance, survivor expenses, housing, medical, and LTC assumptions.</li>
+                <li>The $162 SBP premium is already in Insurance because the pension is gross; it is not added again.</li>
+                <li>Survivor Tax Summary uses single-filer rules and displays taxable income, deductions, federal/Idaho tax, IRMAA, and after-tax income.</li>
+                <li>The modeled $421 monthly DIC Aid &amp; Attendance addition after death replaces rather than stacks with the living-veteran $201.41 addition, subject to approval.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>12. Settings, Cloud Sync, Backup &amp; Privacy</summary>
+            <div class="manual-body">
+              <ul>
+                <li>Secure Cloud Synchronization keeps the retirement plan and shared Notes consistent across authenticated devices.</li>
+                <li>Synchronize now requests an immediate check. Retain the local plan and JSON if an error appears.</li>
+                <li>JSON backup includes planner state, notes, and checkpoints; it excludes the API key and Vault files.</li>
+                <li>Data Quality flags patterns needing review but cannot verify real-world accuracy.</li>
+                <li>Print Full Plan opens the browser print dialog with planner sections; the API key and sensitive controls are omitted.</li>
+                <li>Reset clears planner state after confirmation but leaves Vault files separate.</li>
+              </ul>
+              <p class="manual-note">Upload only index.html to GitHub Pages. Keep JSON backups and API keys off GitHub.</p>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>13. Calculations &amp; Monte Carlo</summary>
+            <div class="manual-body">
+              <p>Each modeled year activates income, spending, debt, medical costs, contributions, growth, taxes, RMDs, and withdrawals. A simulation fails when a required expense remains unfunded after every eligible account is considered.</p>
+              <ul>
+                <li>Matching versions and inputs use reproducible paths and should agree across devices.</li>
+                <li>Standard uses normal returns; Enhanced adds fat tails.</li>
+                <li>An excluded or age-restricted account may appear in net worth while remaining unavailable for spending.</li>
+                <li>Tax, Medicare, VA, Social Security, and benefit rules are simplified and should be rechecked as laws and rates change.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="manual-topic">
+            <summary>14. Weekly Audit &amp; Troubleshooting</summary>
+            <div class="manual-body">
+              <ol>
+                <li>Confirm both HTML files have the same build; restore the newest JSON and export a dated recovery copy.</li>
+                <li>Audit dates, income, three expense alternatives, insurance, investments, withdrawals, debt, medical/LTC, taxes, and survivorship.</li>
+                <li>Confirm only the selected spending basis is counted and trace bridge years through Income Gap and Savings.</li>
+                <li>Compare Enhanced, Standard, first failure reason/age, and the deterministic ending balance.</li>
+                <li>Refresh, confirm the section and values persist, synchronize until Saved, and download the final JSON.</li>
+              </ol>
+              <p><b>Blank data:</b> sign in/synchronize or restore JSON. <b>Sync error:</b> retain the local plan, check connectivity and account status, then use Synchronize now. <b>Device mismatch:</b> compare build, JSON, spending basis, job-loss date, and withdrawal exclusions.</p>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div class="card">
