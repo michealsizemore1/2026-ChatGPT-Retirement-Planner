@@ -196,8 +196,9 @@
   }
   .hamburger-btn:hover{background:rgba(255,255,255,0.22);}
   .shell{
-    padding:20px;
-    max-width:1100px;
+    width:100%;
+    padding:20px 24px;
+    max-width:1700px;
     margin:0 auto;
   }
 
@@ -596,21 +597,20 @@
   /* Shared Notes card — one per page (19 total, one right below each page's header), all showing/
      editing the SAME underlying text (see sharedNotesText / updateSharedNotes() / renderSharedNotes
      Textareas() in the script), styled after the yellow sticky-note "Notes" boxes on the Accounts &
-     Cards page (embedded tracker) but full-bleed: it breaks out of .shell's 1100px/20px-padded
+     Cards page (embedded tracker) but full-bleed: it breaks out of .shell's 1700px/24px-padded
      container and spans the full viewport width edge-to-edge, using the standard
      left:50%/margin-left:-50vw full-bleed technique (works regardless of .shell's own width/padding
      since it's positioned relative to the viewport, not the parent). Inner horizontal padding keeps
      the header/textarea text from touching the screen edges even though the background does.
      Height/line-count (min-height below) is unchanged from the original Dashboard-only version. */
-  .shared-notes-card{background:#fefce8; border-top:1px solid #fde68a; border-bottom:1px solid #fde68a; padding:12px calc(50vw - 550px + 20px); margin:0 0 16px; width:100vw; position:relative; left:50%; right:50%; margin-left:-50vw; margin-right:-50vw;}
-  .shared-notes-card .dn-hdr{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; max-width:1060px; margin-left:auto; margin-right:auto;}
+  .shared-notes-card{background:#fefce8; border-top:1px solid #fde68a; border-bottom:1px solid #fde68a; padding:12px calc(50vw - 850px + 24px); margin:0 0 16px; width:100vw; position:relative; left:50%; right:50%; margin-left:-50vw; margin-right:-50vw;}
+  .shared-notes-card .dn-hdr{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; max-width:1652px; margin-left:auto; margin-right:auto;}
   .shared-notes-card .dn-hdr span{font-size:14.5px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.05em;}
   .shared-notes-card .dn-hdr small{font-size:13.5px; color:#b45309;}
-  .shared-notes-card textarea{display:block; width:100%; max-width:1060px; margin:0 auto; border:none; background:transparent; resize:vertical; font-size:16px; color:var(--text); outline:none; font-family:inherit; line-height:1.55; min-height:70px;}
-  /* Below .shell's own 1100px breakpoint there's no extra side gutter to preserve, so the padding
-     collapses back to a plain 20px on each side — same horizontal margin the rest of the page content
-     already gets from .shell{padding:20px}. */
-  @media (max-width:1100px){ .shared-notes-card{padding-left:20px; padding-right:20px;} }
+  .shared-notes-card textarea{display:block; width:100%; max-width:1652px; margin:0 auto; border:none; background:transparent; resize:vertical; font-size:16px; color:var(--text); outline:none; font-family:inherit; line-height:1.55; min-height:70px;}
+  /* Below .shell's own 1700px breakpoint there is no extra centered gutter to preserve, so the
+     notes use the same 24px horizontal spacing as the rest of the page. */
+  @media (max-width:1700px){ .shared-notes-card{padding-left:24px; padding-right:24px;} }
 
   .tip{display:flex; gap:12px; padding:14px 16px; border-radius:8px; margin-bottom:10px; border:1px solid var(--border); background:#fbfcfc; align-items:flex-start;}
   .tip .tip-icon{font-size:20px; flex-shrink:0; line-height:1.4;}
@@ -723,6 +723,8 @@
      excluded (it already forces 2 columns on purpose for the Dashboard tiles, which are short labels
      that don't have this problem). */
   @media (max-width:600px){
+    .shell{padding:14px;}
+    .shared-notes-card{padding-left:14px; padding-right:14px;}
     .two-col, .three-col{grid-template-columns:1fr;}
   }
   /* Dynamic row-lists (Future Expenses, Windfalls, Insurance, Brokerage Pies, Debt, etc.) use a tight
@@ -2528,7 +2530,7 @@
         <div class="dn-hdr"><span>&#x1F4DD; Notes</span><small>auto-saved, same on every page</small></div>
         <textarea class="shared-notes-textarea" oninput="updateSharedNotes(this.value)" placeholder="Jot down anything — questions for your financial advisor, things to double-check, reminders…" rows="3"></textarea>
       </div>
-      <div class="page-header"><h2>Settings</h2><p>Instructions, backup, restore, and integrations. <b>Build 2026.07.30.1</b></p></div>
+      <div class="page-header"><h2>Settings</h2><p>Instructions, backup, restore, and integrations. <b>Build 2026.07.30.2</b></p></div>
 
       <div class="card">
         <h3 onclick="toggleCard(this)">Secure Cloud Synchronization<span class="sub-label">Supabase — the same plan on every signed-in device</span></h3>
@@ -2585,6 +2587,7 @@
             <summary>2. Header, Navigation &amp; Shared Controls</summary>
             <div class="manual-body">
               <p>The hamburger menu opens the section list. My Plan, Insights, and Explorers are grouped menus. The sticky bar keeps the current section and sync status visible.</p>
+              <p>On larger screens, planner sections use nearly the full available width so cards, tables, charts, and forms have room to breathe. On phones and narrow windows, the same sections remain responsive and stack as needed.</p>
               <ul>
                 <li><b>Today's $</b> removes modeled inflation; <b>Future $</b> shows nominal future dollars.</li>
                 <li>Like to Spend, Must Spend, and Job Loss are alternatives. Only the selected basis is counted.</li>
